@@ -1,7 +1,6 @@
 import { useRef, useState } from 'react';
 
 import { isSoundEnabled, setSoundEnabled } from '../notificationSound.js';
-import { isBrowserRuntime } from '../runtime.js';
 import { transport } from '../transport/index.js';
 import { Button } from './ui/Button.js';
 import { Checkbox } from './ui/Checkbox.js';
@@ -15,9 +14,6 @@ interface SettingsModalProps {
   onToggleDebugMode: () => void;
   alwaysShowOverlay: boolean;
   onToggleAlwaysShowOverlay: () => void;
-  /** Whether headless agents (adopted, no terminal to focus) render translucent. */
-  ghostHeadlessAgents: boolean;
-  onToggleGhostHeadlessAgents: () => void;
   externalAssetDirectories: string[];
   watchAllSessions: boolean;
   onToggleWatchAllSessions: () => void;
@@ -32,9 +28,9 @@ interface SettingsModalProps {
   onToggleShowAreas: () => void;
   /** Hide the Show Areas checkbox entirely when areas are unavailable. */
   showAreasAvailable: boolean;
-  /** Browser-native layout export (standalone only; VS Code uses the host save dialog). */
+  /** Browser-native layout export (downloads the layout JSON). */
   onExportLayout: () => void;
-  /** Browser-native layout import from a chosen file (standalone only). */
+  /** Browser-native layout import from a chosen file. */
   onImportLayout: (file: File) => void;
 }
 
@@ -45,8 +41,6 @@ export function SettingsModal({
   onToggleDebugMode,
   alwaysShowOverlay,
   onToggleAlwaysShowOverlay,
-  ghostHeadlessAgents,
-  onToggleGhostHeadlessAgents,
   externalAssetDirectories,
   watchAllSessions,
   onToggleWatchAllSessions,
@@ -64,24 +58,9 @@ export function SettingsModal({
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} title="Settings">
-      {/* Open Sessions Folder opens an OS file manager — impossible in the browser. */}
-      {!isBrowserRuntime && (
-        <MenuItem
-          onClick={() => {
-            transport.send({ type: 'openSessionsFolder' });
-            onClose();
-          }}
-        >
-          Open Sessions Folder
-        </MenuItem>
-      )}
       <MenuItem
         onClick={() => {
-          if (isBrowserRuntime) {
-            onExportLayout();
-          } else {
-            transport.send({ type: 'exportLayout' });
-          }
+          onExportLayout();
           onClose();
         }}
       >
@@ -89,36 +68,29 @@ export function SettingsModal({
       </MenuItem>
       <MenuItem
         onClick={() => {
-          if (isBrowserRuntime) {
-            // Open the native file picker; the import is applied in onChange below.
-            fileInputRef.current?.click();
-          } else {
-            transport.send({ type: 'importLayout' });
-            onClose();
-          }
+          // Open the native file picker; the import is applied in onChange below.
+          fileInputRef.current?.click();
         }}
       >
         Import Layout
       </MenuItem>
-      {isBrowserRuntime && (
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept="application/json"
-          className="hidden"
-          onChange={(e) => {
-            const file = e.target.files?.[0];
-            // Reset the value so re-selecting the same file fires change again.
-            e.target.value = '';
-            if (file) {
-              onImportLayout(file);
-              onClose();
-            }
-          }}
-        />
-      )}
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="application/json"
+        className="hidden"
+        onChange={(e) => {
+          const file = e.target.files?.[0];
+          // Reset the value so re-selecting the same file fires change again.
+          e.target.value = '';
+          if (file) {
+            onImportLayout(file);
+            onClose();
+          }
+        }}
+      />
       {/* Browser has no native directory picker, so accept a typed absolute path. */}
-      {isBrowserRuntime ? (
+      {
         <div className="flex items-center gap-4 py-4 px-10">
           <input
             type="text"
@@ -141,16 +113,7 @@ export function SettingsModal({
             Add
           </Button>
         </div>
-      ) : (
-        <MenuItem
-          onClick={() => {
-            transport.send({ type: 'addExternalAssetDirectory' });
-            onClose();
-          }}
-        >
-          Add Asset Directory
-        </MenuItem>
-      )}
+      }
       {externalAssetDirectories.map((dir) => (
         <div key={dir} className="flex items-center justify-between py-4 px-10 gap-8">
           <span
@@ -194,15 +157,6 @@ export function SettingsModal({
         checked={alwaysShowOverlay}
         onChange={onToggleAlwaysShowOverlay}
       />
-      {/* Headless agents are the office's only terminal-less citizens in VS Code.
-          Standalone has no terminals at all, so nothing there would ever ghost. */}
-      {!isBrowserRuntime && (
-        <Checkbox
-          label="Display Headless as Ghosts"
-          checked={ghostHeadlessAgents}
-          onChange={onToggleGhostHeadlessAgents}
-        />
-      )}
       {showAreasAvailable && (
         <Checkbox label="Show Areas" checked={showAreas} onChange={onToggleShowAreas} />
       )}

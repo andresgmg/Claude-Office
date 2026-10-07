@@ -1,8 +1,8 @@
 /**
  * Carrying out a consent answer — the half of the gate that touches disk. consentGate.ts decides WHAT an answer means;
  * this decides nothing and only performs it, per provider. Both live here rather than once per surface because a
- * duplicated gate drifts silently in either half. Surfaces differ only in HOW each effect runs (VS Code raises an
- * error modal, standalone logs), so they supply `ConsentEffects` and share the ORDER of the writes.
+ * duplicated gate drifts silently in either half. Surfaces differ only in HOW each effect runs (a UI could raise a
+ * modal, the CLI logs), so they supply `ConsentEffects` and share the ORDER of the writes.
  */
 
 import {

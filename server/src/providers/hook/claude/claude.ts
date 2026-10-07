@@ -19,7 +19,6 @@ import {
   CLAUDE_LARGE_CONTEXT_WINDOW,
   CLAUDE_SMALL_CONTEXT_MODEL_PATTERN,
   CLAUDE_SMALL_CONTEXT_WINDOW,
-  CLAUDE_TERMINAL_NAME_PREFIX,
 } from './constants.js';
 
 // ── formatToolStatus: moved from src/transcriptParser.ts ──
@@ -83,7 +82,7 @@ function getSessionDirs(workspacePath: string): string[] {
   if (fs.existsSync(projectDir)) return [projectDir];
 
   // Case-insensitive fallback for Windows: drive letter casing can differ
-  // between what VS Code gives us (e.g. "c:\...") and Claude's encoding ("C:\...").
+  // between what the host reports (e.g. "c:\...") and Claude's encoding ("C:\...").
   const projectsRoot = path.join(os.homedir(), '.claude', 'projects');
   try {
     if (fs.existsSync(projectsRoot)) {
@@ -307,7 +306,6 @@ export const claudeProvider: HookProvider = {
   permissionExemptTools: new Set(['Task', 'Agent', 'AskUserQuestion']),
   subagentToolNames: new Set(['Task', 'Agent']),
   readingTools: new Set(['Read', 'Grep', 'Glob', 'WebFetch', 'WebSearch']),
-  terminalNamePrefix: CLAUDE_TERMINAL_NAME_PREFIX,
   contextWindowForModel,
 
   getSessionDirs,

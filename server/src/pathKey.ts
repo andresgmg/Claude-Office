@@ -8,7 +8,7 @@ import * as path from 'path';
  *
  *  - hooks carry `transcript_path` derived from Claude's own `process.cwd()`
  *    (`...\projects\C--Users-me-project\<id>.jsonl`)
- *  - the scanners build paths from the workspace folder VS Code reports, and
+ *  - the scanners build paths from the working directory the hooks report, and
  *    `Uri.fsPath` lowercases the drive letter
  *    (`...\projects\c--Users-me-project\<id>.jsonl`)
  *

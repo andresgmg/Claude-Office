@@ -2,17 +2,7 @@ import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 
-import {
-  LAYOUT_FILE_DIR,
-  LAYOUT_FILE_NAME,
-  LAYOUT_FILE_POLL_INTERVAL_MS,
-  LAYOUT_REVISION_KEY,
-} from './constants.js';
-
-export interface LayoutWatcher {
-  markOwnWrite(): void;
-  dispose(): void;
-}
+import { LAYOUT_FILE_DIR, LAYOUT_FILE_NAME, LAYOUT_REVISION_KEY } from './constants.js';
 
 function getLayoutFilePath(): string {
   return path.join(os.homedir(), LAYOUT_FILE_DIR, LAYOUT_FILE_NAME);
@@ -54,11 +44,8 @@ interface LayoutLoadResult {
 
 /**
  * Load layout from file. Falls back to bundled default if the file is empty.
- * Resets to the bundled default when a newer revision is bundled.
- *
- * Migration from VS Code workspaceState happens earlier, in
- * adapters/vscode/migrateVsCodeState.ts (run on extension activate). By the
- * time this is called, the file is the only source of truth.
+ * Resets to the bundled default when a newer revision is bundled. The file is
+ * the only source of truth.
  *
  * 1. If file exists → return it (reset if bundled default has a newer revision)
  * 2. Else if defaultLayout provided → write to file, return it
@@ -89,103 +76,4 @@ export function loadLayout(
   }
 
   return null;
-}
-
-/**
- * Watch ~/.pixel-agents/layout.json for external changes (other VS Code windows).
- * Uses hybrid fs.watch + polling (same pattern as JSONL watching).
- */
-export function watchLayoutFile(
-  onExternalChange: (layout: Record<string, unknown>) => void,
-): LayoutWatcher {
-  const filePath = getLayoutFilePath();
-  let skipNextChange = false;
-  let lastMtime = 0;
-  let fsWatcher: fs.FSWatcher | null = null;
-  let pollTimer: ReturnType<typeof setInterval> | null = null;
-  let disposed = false;
-
-  // Initialize lastMtime
-  try {
-    if (fs.existsSync(filePath)) {
-      lastMtime = fs.statSync(filePath).mtimeMs;
-    }
-  } catch {
-    /* ignore */
-  }
-
-  function checkForChange(): void {
-    if (disposed) return;
-    try {
-      if (!fs.existsSync(filePath)) return;
-      const stat = fs.statSync(filePath);
-      if (stat.mtimeMs <= lastMtime) return;
-      lastMtime = stat.mtimeMs;
-
-      if (skipNextChange) {
-        skipNextChange = false;
-        return;
-      }
-
-      const raw = fs.readFileSync(filePath, 'utf-8');
-      const layout = JSON.parse(raw) as Record<string, unknown>;
-      console.log('[Pixel Agents] External layout change detected');
-      onExternalChange(layout);
-    } catch (err) {
-      console.error('[Pixel Agents] Error checking layout file:', err);
-    }
-  }
-
-  function startFsWatch(): void {
-    if (disposed || fsWatcher) return;
-    try {
-      if (!fs.existsSync(filePath)) return;
-      fsWatcher = fs.watch(filePath, () => {
-        checkForChange();
-      });
-      fsWatcher.on('error', (err) => {
-        // fs.watch can be unreliable on macOS (kqueue) and may hit inotify limits on Linux
-        console.log(`[Pixel Agents] Layout: fs.watch error: ${err.message}`);
-        fsWatcher?.close();
-        fsWatcher = null;
-      });
-    } catch {
-      // File may not exist yet — polling will retry
-    }
-  }
-
-  // Start fs.watch if file exists
-  startFsWatch();
-
-  // Polling backup (also starts fs.watch if file appears)
-  pollTimer = setInterval(() => {
-    if (disposed) return;
-    if (!fsWatcher) {
-      startFsWatch();
-    }
-    checkForChange();
-  }, LAYOUT_FILE_POLL_INTERVAL_MS);
-
-  return {
-    markOwnWrite(): void {
-      skipNextChange = true;
-      // Update lastMtime preemptively so a near-instant poll doesn't miss the flag
-      try {
-        if (fs.existsSync(filePath)) {
-          lastMtime = fs.statSync(filePath).mtimeMs;
-        }
-      } catch {
-        /* ignore */
-      }
-    },
-    dispose(): void {
-      disposed = true;
-      fsWatcher?.close();
-      fsWatcher = null;
-      if (pollTimer) {
-        clearInterval(pollTimer);
-        pollTimer = null;
-      }
-    },
-  };
 }

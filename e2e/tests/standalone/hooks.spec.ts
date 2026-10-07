@@ -106,10 +106,9 @@ test.describe('Standalone / hooks', () => {
 });
 
 /**
- * The standalone consent path end to end. The fixture normally seeds a granted Claude consent; these opt out, so the
- * CLI starts with nothing installed and the server asks over the tokened /ws handshake — the SAME in-app dialog the
- * VS Code webview shows (pinned in claude/hooks-on/consent.spec.ts). Here the pins are the standalone-only halves:
- * the token boundary and the checkbox route.
+ * The consent path end to end. The fixture normally seeds a granted Claude consent; these opt out, so the CLI
+ * starts with nothing installed and the server asks over the tokened /ws handshake, which the SPA renders as the
+ * in-app Intro dialog. The pins here are the token boundary, the Install route and the checkbox route.
  */
 test.describe('Standalone / hooks consent', () => {
   test.use({ seedHooksConsent: false });

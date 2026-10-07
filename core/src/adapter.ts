@@ -1,7 +1,7 @@
 /**
  * Pluggable persistence backend for agent state and user settings.
  *
- * Today both VS Code and the standalone CLI use FileStateAdapter, which
+ * Today the CLI uses FileStateAdapter, which
  * persists everything under ~/.pixel-agents/ as plain JSON. The interface
  * exists so future hosts (JetBrains plugin, browser-only mock for tests)
  * can swap in alternate backends without touching the rest of the code.

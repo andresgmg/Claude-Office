@@ -24,7 +24,6 @@ function createTestAgent(overrides: Partial<AgentState> = {}): AgentState {
   return {
     id: 1,
     sessionId: 'sess-1',
-    terminalRef: undefined,
     isExternal: false,
     projectDir: '/test',
     jsonlFile: '/test/session.jsonl',
@@ -117,18 +116,6 @@ describe('clientMessageHandler: areas + carpet wire ordering', () => {
 
       const cfg = readConfig();
       expect(cfg.standalone.areaMappings).toEqual({});
-    });
-
-    it('does not leak into the vscode namespace', () => {
-      handleClientMessage(
-        { type: 'saveAreaMappings', mappings: { frontend: ['Engineering'] } },
-        (m) => sent.push(m),
-        ctx,
-      );
-
-      const cfg = readConfig();
-      expect(cfg.standalone.areaMappings).toEqual({ frontend: ['Engineering'] });
-      expect(cfg.vscode.areaMappings).toEqual({});
     });
   });
 

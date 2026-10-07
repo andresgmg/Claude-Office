@@ -104,9 +104,6 @@ export interface HookProvider {
    *  The provider classifies tools as read-like or write-like; the webview renders
    *  the animation. Allows new providers to override without webview edits. */
   readonly readingTools: ReadonlySet<string>;
-  /** Terminal name prefix used when launching this CLI. Used by the extension to
-   *  match VS Code terminals to agents for heuristic adoption. */
-  readonly terminalNamePrefix?: string;
 
   /** Context window, in tokens, for a model id this CLI reports in its
    *  transcripts. Transcripts state token usage but never the limit it counts

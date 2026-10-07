@@ -14,7 +14,7 @@ export interface ServerTarget {
 export interface ServerConfig extends ServerTarget {
   /** Timestamp (ms) when the server started. */
   startedAt: number;
-  /** Whether this server serves the webview SPA (standalone / !embedded). */
+  /** Whether this server serves the webview SPA. Always true for the web server; kept in the registry record for compatibility. */
   servesSpa: boolean;
   /** Registry record format version. */
   protocol: number;

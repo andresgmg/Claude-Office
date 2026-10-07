@@ -1,16 +1,18 @@
 /**
- * Builders for seeded `~/.pixel-agents/{layout,config}.json`, passed to the
- * pixelAgents fixture via `test.use({ seedLayout, seedConfig })`. The fixture
- * writes them under the isolated HOME BEFORE VS Code launches (see
- * e2e/helpers/launch.ts), so the server reads them on startup.
+ * Builder for a minimal `layout.json` document. The standalone UI spec writes
+ * one to disk and feeds it to the browser's "Import Layout" file input, then
+ * recognises it in the applied OfficeState by its unique area label.
  *
- * A seeded layout MUST carry a layoutRevision above the bundled default's (1),
- * or `loadLayout` resets it to the bundled default
- * (server/src/layoutPersistence.ts). SEED_LAYOUT_REVISION sits far above that.
+ * The layout carries a layoutRevision far above the bundled default's: the
+ * server resets a persisted layout whose revision is below the bundled one
+ * (server/src/layoutPersistence.ts `loadLayout`), and the webview runs its
+ * legacy-format migrations only when the revision is missing
+ * (webview-ui/src/office/layout/layoutSerializer.ts). A high revision keeps a
+ * seeded layout out of both paths.
  */
 
 /** Far above the bundled default-layout revision so a seeded layout survives load. */
-export const SEED_LAYOUT_REVISION = 9999;
+const SEED_LAYOUT_REVISION = 9999;
 
 /** Default floor TileType used to fill a seeded grid (FLOOR_1 = 1). */
 const FLOOR_1 = 1;
@@ -41,8 +43,8 @@ export interface SeedLayoutOptions {
 
 /**
  * Build a minimal valid OfficeLayout (version 1, all-floor, no furniture) with
- * optional carpet/area data, suitable for `test.use({ seedLayout })`. No chairs
- * means no seats — use the bundled default layout (don't seed) for seat tests.
+ * optional carpet/area data. No chairs means no seats — a test that needs
+ * seated characters must use the bundled default layout instead.
  */
 export function buildSeedLayout(opts: SeedLayoutOptions = {}): Record<string, unknown> {
   const cols = opts.cols ?? 12;
@@ -78,47 +80,4 @@ export function buildSeedLayout(opts: SeedLayoutOptions = {}): Record<string, un
   }
 
   return layout;
-}
-
-/**
- * Mirrors server/src/configPersistence.ts DEFAULT_ADAPTER_SETTINGS, except
- * alwaysShowLabels — the e2e baseline turns labels on so overlay text is
- * assertable without hover (same default the launch-level seed applies when a
- * test passes no seedConfig; see e2e/helpers/launch.ts).
- */
-const DEFAULT_ADAPTER_SETTINGS = {
-  soundEnabled: true,
-  lastSeenVersion: '',
-  alwaysShowLabels: true,
-  watchAllSessions: false,
-  hooksInfoShown: false,
-  showAreas: false,
-  areaMappings: {} as Record<string, string[]>,
-};
-
-export interface SeedConfigOptions {
-  /** Folder name → Area labels (written into the vscode namespace). */
-  areaMappings?: Record<string, string[]>;
-  /** Persisted Show Areas state for the vscode namespace. */
-  showAreas?: boolean;
-}
-
-/**
- * Build a full PixelAgentsConfig for `test.use({ seedConfig })`, setting the
- * vscode namespace's areaMappings / showAreas. The standalone namespace keeps
- * defaults so there is no cross-namespace leak.
- */
-export function buildSeedConfig(opts: SeedConfigOptions = {}): Record<string, unknown> {
-  return {
-    vscode: {
-      ...DEFAULT_ADAPTER_SETTINGS,
-      showAreas: opts.showAreas ?? false,
-      areaMappings: opts.areaMappings ?? {},
-    },
-    standalone: { ...DEFAULT_ADAPTER_SETTINGS },
-    externalAssetDirectories: [],
-    // Same baseline as the launch-level seed: skip the first-run consent prompt
-    // so hook installation proceeds at startup (see e2e/helpers/launch.ts).
-    hooksConsent: { claude: 'granted' },
-  };
 }

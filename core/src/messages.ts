@@ -11,7 +11,6 @@ export type ServerMessage =
   | ProviderCapabilities
   | AgentCreated
   | AgentClosed
-  | AgentSelected
   | ExistingAgents
   | AgentStatus
   | AgentToolStart
@@ -37,13 +36,10 @@ export type ServerMessage =
   | HooksConsentRequest
   | ExternalAssetDirectoriesUpdated
   | AreaMappingsLoaded
-  | WorkspaceFolders
   | AgentDiagnostics;
 
 export type ClientMessage =
   | WebviewReady
-  | LaunchAgent
-  | FocusAgent
   | CloseAgent
   | SaveAgentSeats
   | SaveLayout
@@ -55,9 +51,6 @@ export type ClientMessage =
   | HooksConsentResponse
   | SetHooksInfoShown
   | SetWatchAllSessions
-  | ExportLayout
-  | ImportLayout
-  | OpenSessionsFolder
   | AddExternalAssetDirectory
   | RemoveExternalAssetDirectory
   | SaveAreaMappings
@@ -81,11 +74,6 @@ export interface AgentCreated {
 
 export interface AgentClosed {
   type: 'agentClosed';
-  id: number;
-}
-
-export interface AgentSelected {
-  type: 'agentSelected';
   id: number;
 }
 
@@ -300,16 +288,6 @@ export interface AreaMappingsLoaded {
   mappings: Record<string, string[]>;
 }
 
-export interface WorkspaceFolders {
-  type: 'workspaceFolders';
-  folders: WorkspaceFolder[];
-}
-
-export interface WorkspaceFolder {
-  name: string;
-  path: string;
-}
-
 export interface AgentDiagnostics {
   type: 'agentDiagnostics';
   agents: Record<string, any>[];
@@ -317,17 +295,6 @@ export interface AgentDiagnostics {
 
 export interface WebviewReady {
   type: 'webviewReady';
-}
-
-export interface LaunchAgent {
-  type: 'launchAgent';
-  folderPath?: string;
-  bypassPermissions?: boolean;
-}
-
-export interface FocusAgent {
-  type: 'focusAgent';
-  id: number;
 }
 
 export interface CloseAgent {
@@ -394,21 +361,9 @@ export interface SetWatchAllSessions {
   enabled: boolean;
 }
 
-export interface ExportLayout {
-  type: 'exportLayout';
-}
-
-export interface ImportLayout {
-  type: 'importLayout';
-}
-
-export interface OpenSessionsFolder {
-  type: 'openSessionsFolder';
-}
-
 export interface AddExternalAssetDirectory {
   type: 'addExternalAssetDirectory';
-  path?: string;
+  path: string;
 }
 
 export interface RemoveExternalAssetDirectory {

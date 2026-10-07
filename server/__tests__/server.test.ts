@@ -168,70 +168,22 @@ describe('PixelAgentsServer', () => {
     expect(entry.port).toBe(config.port);
     expect(entry.pid).toBe(process.pid);
     expect(entry.token).toBe(config.token);
-    expect(entry.servesSpa).toBe(false); // embedded (default) never serves the SPA
+    expect(entry.servesSpa).toBe(true); // the web server always serves the SPA
     expect(typeof entry.protocol).toBe('number');
   });
 
-  // 11. Second instance, same capability (embedded+embedded), reuses existing server
-  it('second embedded instance reuses an existing embedded server', async () => {
-    const config1 = await server.start({ embedded: true });
+  // 11. A second instance reuses the existing live server instead of starting its own
+  it('second instance reuses an existing server', async () => {
+    const config1 = await server.start();
     const server2 = new PixelAgentsServer();
-    const config2 = await server2.start({ embedded: true });
+    const config2 = await server2.start();
     expect(config2.port).toBe(config1.port);
     expect(config2.pid).toBe(config1.pid);
+    expect(config2.token).toBe(config1.token);
     expect(registryFiles()).toHaveLength(1); // reuse -- server2 wrote no entry of its own
     server2.stop(); // should not delete server.json / the registry entry (not owner)
-  });
-
-  // 12. Second instance, same capability (standalone+standalone), reuses existing server
-  it('second standalone instance reuses an existing standalone server', async () => {
-    const config1 = await server.start({ embedded: false });
-    const server2 = new PixelAgentsServer();
-    const config2 = await server2.start({ embedded: false });
-    expect(config2.port).toBe(config1.port);
     expect(registryFiles()).toHaveLength(1);
-    server2.stop();
-  });
-
-  // 13. Capability mismatch: a standalone caller never reuses an embedded server
-  it('standalone does not reuse an existing embedded server; starts its own', async () => {
-    const config1 = await server.start({ embedded: true });
-    const server2 = new PixelAgentsServer();
-    const config2 = await server2.start({ embedded: false });
-    expect(config2.port).not.toBe(config1.port);
-    expect(registryFiles()).toHaveLength(2);
-    server2.stop();
-  });
-
-  // 14. Capability mismatch, mirrored: an embedded caller never reuses a standalone server
-  it('embedded does not reuse an existing standalone server; starts its own', async () => {
-    const config1 = await server.start({ embedded: false });
-    const server2 = new PixelAgentsServer();
-    const config2 = await server2.start({ embedded: true });
-    expect(config2.port).not.toBe(config1.port);
-    expect(registryFiles()).toHaveLength(2);
-    server2.stop();
-  });
-
-  // 15. Embedded + standalone coexist: two independent live registry entries, neither reuses
-  it('embedded and standalone servers coexist as two live registry entries', async () => {
-    const embeddedConfig = await server.start({ embedded: true });
-    const standalone = new PixelAgentsServer();
-    const standaloneConfig = await standalone.start({ embedded: false });
-
-    expect(standaloneConfig.port).not.toBe(embeddedConfig.port);
-    expect(standaloneConfig.token).not.toBe(embeddedConfig.token);
-    const files = registryFiles();
-    expect(files).toHaveLength(2);
-    const entries = files.map((f) =>
-      JSON.parse(fs.readFileSync(path.join(registryDir, f), 'utf-8')),
-    );
-    expect(entries.some((e) => e.servesSpa === false && e.port === embeddedConfig.port)).toBe(true);
-    expect(entries.some((e) => e.servesSpa === true && e.port === standaloneConfig.port)).toBe(
-      true,
-    );
-
-    standalone.stop();
+    expect(fs.existsSync(serverJsonPath)).toBe(true);
   });
 
   // 16. Dead-pid registry entries are pruned on start, never reused
@@ -245,12 +197,12 @@ describe('PixelAgentsServer', () => {
         pid: 999999,
         token: 'stale',
         startedAt: 0,
-        servesSpa: false,
+        servesSpa: true,
         protocol: 1,
       }),
     );
 
-    const config = await server.start({ embedded: true });
+    const config = await server.start();
 
     expect(fs.existsSync(staleFile)).toBe(false); // pruned, not left behind
     expect(config.port).not.toBe(9999); // never reused the dead entry -- started its own
@@ -268,12 +220,12 @@ describe('PixelAgentsServer', () => {
         pid: process.pid,
         token: 'invalid-port',
         startedAt: Date.now(),
-        servesSpa: false,
+        servesSpa: true,
         protocol: 1,
       }),
     );
 
-    const config = await server.start({ embedded: true });
+    const config = await server.start();
 
     expect(config.port).not.toBe(70_000);
     expect(fs.existsSync(malformedFile)).toBe(false);
@@ -301,23 +253,34 @@ describe('PixelAgentsServer', () => {
     expect(fs.existsSync(serverJsonPath)).toBe(true);
   });
 
-  // 20. stop() removes only this server's own registry entry, preserves the other's (D6)
+  // 20. stop() removes only this server's own registry entry, preserves another live one (D6)
   it('deletes only its own registry entry on stop, preserving a coexisting server', async () => {
-    const embeddedConfig = await server.start({ embedded: true });
-    const standalone = new PixelAgentsServer();
-    const standaloneConfig = await standalone.start({ embedded: false });
+    const ownConfig = await server.start();
+    // A second live server, registered by hand: starting one for real would
+    // simply reuse ours (there is a single capability now).
+    fs.writeFileSync(
+      path.join(registryDir, `${process.pid}-65000.json`),
+      JSON.stringify({
+        port: 65_000,
+        pid: process.pid,
+        token: 'other-live-server',
+        startedAt: Date.now(),
+        servesSpa: true,
+        protocol: 1,
+      }),
+    );
     expect(registryFiles()).toHaveLength(2);
 
-    standalone.stop();
+    server.stop();
 
-    // Only the standalone's own entry is gone; the still-running embedded
-    // server's registry entry is untouched (self-only cleanup, D6).
+    // Only our own entry is gone; the other live server's entry is untouched
+    // (self-only cleanup, D6).
     const remaining = registryFiles().map(
       (f) => JSON.parse(fs.readFileSync(path.join(registryDir, f), 'utf-8')) as { port: number },
     );
     expect(remaining).toHaveLength(1);
-    expect(remaining[0].port).toBe(embeddedConfig.port);
-    expect(remaining.some((e) => e.port === standaloneConfig.port)).toBe(false);
+    expect(remaining[0].port).toBe(65_000);
+    expect(remaining.some((e) => e.port === ownConfig.port)).toBe(false);
   });
 
   // 21. Unknown route returns 404

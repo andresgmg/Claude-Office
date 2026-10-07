@@ -5,7 +5,7 @@ const path = require('path');
 const production = process.argv.includes('--production');
 const watch = process.argv.includes('--watch');
 
-/** Extension version read from package.json at build time, inlined via esbuild `define`. */
+/** Package version read from package.json at build time, inlined via esbuild `define`. */
 const pkgVersion = JSON.parse(
   fs.readFileSync(path.join(__dirname, 'package.json'), 'utf-8'),
 ).version;
@@ -63,6 +63,8 @@ function buildHooks() {
 }
 
 /**
+ * Prints esbuild errors in the format the editor watch task's problem matcher
+ * expects (see .vscode/tasks.json).
  * @type {import('esbuild').Plugin}
  */
 const esbuildProblemMatcherPlugin = {
@@ -82,68 +84,38 @@ const esbuildProblemMatcherPlugin = {
   },
 };
 
+/**
+ * The standalone CLI bundle: server/src/cli.ts -> dist/cli.js. The Fastify
+ * family stays external: it is declared in the root package.json dependencies
+ * and resolved from node_modules at runtime.
+ * @type {import('esbuild').BuildOptions}
+ */
+const cliBuildOptions = {
+  entryPoints: ['server/src/cli.ts'],
+  bundle: true,
+  format: 'cjs',
+  minify: production,
+  sourcemap: !production,
+  sourcesContent: false,
+  platform: 'node',
+  outfile: 'dist/cli.js',
+  external: ['fastify', '@fastify/websocket', '@fastify/static', '@fastify/cors'],
+  define: versionDefine,
+  logLevel: 'silent',
+  plugins: [esbuildProblemMatcherPlugin],
+};
+
 async function main() {
-  const ctx = await esbuild.context({
-    entryPoints: ['adapters/vscode/extension.ts'],
-    bundle: true,
-    format: 'cjs',
-    minify: production,
-    sourcemap: !production,
-    sourcesContent: false,
-    platform: 'node',
-    outfile: 'dist/extension.js',
-    external: ['vscode'],
-    define: versionDefine,
-    logLevel: 'silent',
-    plugins: [
-      /* add to the end of plugins array */
-      esbuildProblemMatcherPlugin,
-    ],
-  });
   if (watch) {
+    const ctx = await esbuild.context(cliBuildOptions);
     await ctx.watch();
-  } else {
-    await ctx.rebuild();
-    await ctx.dispose();
-    // Copy assets and hooks after build
-    copyAssets();
-    buildHooks();
-    await buildCli();
-    await buildUninstall();
+    return;
   }
-}
-
-/** Bundle the vscode:uninstall hook — plain Node, runs after extension removal. */
-async function buildUninstall() {
-  await esbuild.build({
-    entryPoints: ['adapters/vscode/uninstall.ts'],
-    bundle: true,
-    format: 'cjs',
-    minify: production,
-    sourcemap: false,
-    platform: 'node',
-    outfile: 'dist/uninstall.js',
-    define: versionDefine,
-    logLevel: 'silent',
-  });
-}
-
-/** Bundle the standalone CLI entry point. */
-async function buildCli() {
-  await esbuild.build({
-    entryPoints: ['server/src/cli.ts'],
-    bundle: true,
-    format: 'cjs',
-    minify: production,
-    sourcemap: !production,
-    platform: 'node',
-    outfile: 'dist/cli.js',
-    external: ['fastify', '@fastify/websocket', '@fastify/static', '@fastify/cors'],
-    define: versionDefine,
-    logLevel: 'silent',
-  });
+  copyAssets();
+  buildHooks();
+  await esbuild.build(cliBuildOptions);
   if (!production) {
-    console.log('[build] CLI bundled: dist/cli.mjs');
+    console.log('[build] CLI bundled: dist/cli.js');
   }
 }
 

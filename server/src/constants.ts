@@ -82,9 +82,7 @@ export const MIN_AUTH_TOKEN_LENGTH = 16;
 export const SERVER_REGISTRY_PROTOCOL_VERSION = 1;
 
 // ── WebSocket close codes (application range 4000-4999) ────
-/** Embedded mode: Bearer token missing or wrong. */
-export const WS_CLOSE_UNAUTHORIZED = 4001;
-/** Standalone mode: the handshake's Origin is not this server's own origin.
+/** The handshake's Origin is not this server's own origin.
  *  WebSocket connects bypass CORS, so this is the only thing standing between
  *  a drive-by web page and the privileged client-message channel. */
 export const WS_CLOSE_FORBIDDEN_ORIGIN = 4003;
@@ -100,7 +98,6 @@ export const MAX_HOOK_BODY_SIZE = 65_536; // 64KB
 // ── Layout/Config Persistence ──────────────────────────────
 export const LAYOUT_FILE_DIR = '.pixel-agents';
 export const LAYOUT_FILE_NAME = 'layout.json';
-export const LAYOUT_FILE_POLL_INTERVAL_MS = 2000;
 export const LAYOUT_REVISION_KEY = 'layoutRevision';
 export const CONFIG_FILE_NAME = 'config.json';
 

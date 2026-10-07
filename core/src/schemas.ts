@@ -15,7 +15,6 @@
 export interface PersistedAgent {
   id: number;
   sessionId?: string;
-  terminalName: string;
   isExternal?: boolean;
   jsonlFile: string;
   projectDir: string;
@@ -136,7 +135,7 @@ export interface HookEvent {
 
 // ── Disposable ───────────────────────────────────────────────
 
-/** Generic disposable pattern (matches VS Code's Disposable)
+/** Generic disposable pattern
  *
  * @public
  */

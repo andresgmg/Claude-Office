@@ -13,7 +13,6 @@ function createTestAgent(overrides: Partial<AgentState> = {}): AgentState {
   return {
     id: 1,
     sessionId: 'sess-1',
-    terminalRef: undefined,
     isExternal: true,
     projectDir: '/test',
     jsonlFile: '/test/session.jsonl',
@@ -91,7 +90,6 @@ describe('AgentRuntime -- restore preserves palette/hueShift', () => {
       {
         id: 7,
         sessionId: 'sess-restore',
-        terminalName: '',
         isExternal: true,
         jsonlFile: jsonlPath,
         projectDir: tmpDir,
@@ -161,7 +159,6 @@ describe('AgentRuntime -- restore preserves palette/hueShift', () => {
       {
         id: 9,
         sessionId: 'sess-fresh',
-        terminalName: '',
         isExternal: true,
         jsonlFile: jsonlPath,
         projectDir: tmpDir,

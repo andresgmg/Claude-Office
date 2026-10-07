@@ -28,7 +28,6 @@ import { computeNormalModeCursor } from './officeCanvasCursor.js';
 
 interface OfficeCanvasProps {
   officeState: OfficeState;
-  onClick: (agentId: number) => void;
   isEditMode: boolean;
   editorState: EditorState;
   onEditorTileAction: (col: number, row: number) => void;
@@ -49,7 +48,6 @@ interface OfficeCanvasProps {
 
 export function OfficeCanvas({
   officeState,
-  onClick,
   isEditMode,
   editorState,
   onEditorTileAction,
@@ -735,7 +733,6 @@ export function OfficeCanvas({
           officeState.selectedAgentId = hitId;
           officeState.cameraFollowId = hitId;
         }
-        onClick(hitId); // still focus terminal
         return;
       }
 
@@ -788,7 +785,7 @@ export function OfficeCanvas({
         officeState.cameraFollowId = null;
       }
     },
-    [officeState, onClick, screenToWorld, screenToTile, isEditMode],
+    [officeState, screenToWorld, screenToTile, isEditMode],
   );
 
   const handleMouseLeave = useCallback(() => {

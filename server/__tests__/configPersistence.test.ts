@@ -12,7 +12,6 @@ import {
   parseAreaMappings,
   readConfig,
   recordHooksDecline,
-  resetHooksConfig,
   setHooksEnabled,
   writeConfig,
 } from '../src/configPersistence.js';
@@ -194,27 +193,6 @@ describe('configPersistence: areas', () => {
       );
       expect('claude' in (raw.hooksEnabled ?? {})).toBe(false);
     });
-
-    it('resetHooksConfig returns all hooks choices to factory state (uninstall → ask again)', () => {
-      grantHooksConsent('claude');
-      recordHooksDecline('other');
-      setHooksEnabled('claude', false); // a persisted "off" must not survive uninstall,
-      setHooksEnabled('other', false); // or the next install never prompts
-      const cfg = readConfig();
-      cfg.vscode.hooksInfoShown = true;
-      cfg.standalone.hooksInfoShown = true;
-      writeConfig(cfg);
-
-      resetHooksConfig();
-
-      expect(getHooksConsent('claude')).toBe('unanswered');
-      expect(getHooksConsent('other')).toBe('unanswered');
-      expect(getHooksEnabled('claude')).toBe(true);
-      expect(getHooksEnabled('other')).toBe(true);
-      const reset = readConfig();
-      expect(reset.vscode.hooksInfoShown).toBe(false);
-      expect(reset.standalone.hooksInfoShown).toBe(false);
-    });
   });
 
   // ── readConfig / writeConfig round-trip ──────────────────────
@@ -222,24 +200,18 @@ describe('configPersistence: areas', () => {
   describe('readConfig + writeConfig round-trip for area settings', () => {
     it('returns defaults (showAreas=false, areaMappings={}) when no config file exists', () => {
       const cfg = readConfig();
-      expect(cfg.vscode.showAreas).toBe(false);
-      expect(cfg.vscode.areaMappings).toEqual({});
       expect(cfg.standalone.showAreas).toBe(false);
       expect(cfg.standalone.areaMappings).toEqual({});
     });
 
-    it('round-trips showAreas + areaMappings per-namespace independently', () => {
+    it('round-trips showAreas + areaMappings', () => {
       const cfg = readConfig();
-      cfg.vscode.showAreas = true;
-      cfg.vscode.areaMappings = { frontend: ['Engineering'] };
-      cfg.standalone.showAreas = false;
+      cfg.standalone.showAreas = true;
       cfg.standalone.areaMappings = { backend: ['Platform'] };
       writeConfig(cfg);
 
       const reloaded = readConfig();
-      expect(reloaded.vscode.showAreas).toBe(true);
-      expect(reloaded.vscode.areaMappings).toEqual({ frontend: ['Engineering'] });
-      expect(reloaded.standalone.showAreas).toBe(false);
+      expect(reloaded.standalone.showAreas).toBe(true);
       expect(reloaded.standalone.areaMappings).toEqual({ backend: ['Platform'] });
     });
 
@@ -249,29 +221,16 @@ describe('configPersistence: areas', () => {
       fs.writeFileSync(
         path.join(configDir, 'config.json'),
         JSON.stringify({
-          vscode: { showAreas: 'yes please', areaMappings: 'not-an-object' },
-          standalone: { showAreas: true, areaMappings: { frontend: 'broken' } },
+          standalone: { showAreas: 'yes please', areaMappings: { frontend: 'broken' } },
         }),
         'utf-8',
       );
 
       const cfg = readConfig();
       // showAreas: 'yes please' is not a boolean → default false
-      expect(cfg.vscode.showAreas).toBe(false);
-      expect(cfg.vscode.areaMappings).toEqual({});
-      // showAreas: true is valid; areaMappings.frontend: 'broken' is not an array → dropped
-      expect(cfg.standalone.showAreas).toBe(true);
+      expect(cfg.standalone.showAreas).toBe(false);
+      // areaMappings.frontend: 'broken' is not an array → dropped
       expect(cfg.standalone.areaMappings).toEqual({});
-    });
-
-    it('keeps namespaces isolated when only one writes mappings', () => {
-      const cfg = readConfig();
-      cfg.vscode.areaMappings = { frontend: ['Engineering'] };
-      writeConfig(cfg);
-
-      const reloaded = readConfig();
-      expect(reloaded.vscode.areaMappings).toEqual({ frontend: ['Engineering'] });
-      expect(reloaded.standalone.areaMappings).toEqual({});
     });
   });
 });

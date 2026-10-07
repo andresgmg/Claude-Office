@@ -32,8 +32,9 @@ export const ADAPTER_SETTING_KEYS = [
 
 export type AdapterSettingKey = (typeof ADAPTER_SETTING_KEYS)[number];
 
-/** Namespaces = adapter identities sharing the same config.json file. */
-export type ConfigNamespace = 'vscode' | 'standalone';
+/** Namespaces = UI surfaces sharing the same config.json file. The web
+ *  server is the only surface today. */
+export type ConfigNamespace = 'standalone';
 
 /** What the user answered a provider's consent ask with, durably. `granted` is recorded BEFORE the install writes, so
  *  it can exist with nothing on disk; `declined` means the ANSWER itself turned hooks off, the provenance a revised
@@ -42,7 +43,6 @@ export type ConfigNamespace = 'vscode' | 'standalone';
 export type HooksConsentState = 'granted' | 'declined';
 
 export interface PixelAgentsConfig {
-  vscode: AdapterSettings;
   standalone: AdapterSettings;
   externalAssetDirectories: string[];
   /** Per-provider consent to modify that provider's settings file (Claude:
@@ -153,7 +153,6 @@ export function readConfig(): PixelAgentsConfig {
   try {
     if (!fs.existsSync(filePath)) {
       return {
-        vscode: { ...DEFAULT_ADAPTER_SETTINGS },
         standalone: { ...DEFAULT_ADAPTER_SETTINGS },
         externalAssetDirectories: [],
         hooksConsent: {},
@@ -163,7 +162,6 @@ export function readConfig(): PixelAgentsConfig {
     const raw = fs.readFileSync(filePath, 'utf-8');
     const parsed = JSON.parse(raw) as Partial<PixelAgentsConfig>;
     return {
-      vscode: parseAdapterSettings(parsed.vscode),
       standalone: parseAdapterSettings(parsed.standalone),
       externalAssetDirectories: Array.isArray(parsed.externalAssetDirectories)
         ? parsed.externalAssetDirectories.filter((d): d is string => typeof d === 'string')
@@ -174,7 +172,6 @@ export function readConfig(): PixelAgentsConfig {
   } catch (err) {
     console.error('[Pixel Agents] Failed to read config file:', err);
     return {
-      vscode: { ...DEFAULT_ADAPTER_SETTINGS },
       standalone: { ...DEFAULT_ADAPTER_SETTINGS },
       externalAssetDirectories: [],
       hooksConsent: {},
@@ -266,20 +263,6 @@ export function clearHooksEnabled(providerId: string): void {
     delete cfg.hooksEnabled[providerId];
     writeConfig(cfg);
   }
-}
-
-/** Called on extension uninstall: return every hooks-related choice to factory state — all providers' consent and
- *  preferences cleared, hooksInfoShown back to default in both namespaces. Those choices belonged to an installation
- *  that no longer exists, so a future install starts from the first-run experience rather than inheriting a stale
- *  hooks-off that would skip the ask forever. */
-export function resetHooksConfig(): void {
-  const cfg = readConfig();
-  cfg.hooksConsent = {};
-  cfg.hooksEnabled = {};
-  for (const ns of ['vscode', 'standalone'] as const) {
-    cfg[ns].hooksInfoShown = DEFAULT_ADAPTER_SETTINGS.hooksInfoShown;
-  }
-  writeConfig(cfg);
 }
 
 export function writeConfig(config: PixelAgentsConfig): void {

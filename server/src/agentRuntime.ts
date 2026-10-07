@@ -1,9 +1,9 @@
 /**
- * AgentRuntime: shared agent lifecycle core for VS Code and standalone modes.
+ * AgentRuntime: the agent lifecycle core.
  *
- * Owns all infrastructure that both PixelAgentsViewProvider (VS Code) and the
+ * Owns all infrastructure that the
  * standalone CLI need: timer Maps, file watchers, HookEventHandler, DismissalTracker,
- * session scanning, and agent removal. Adapters (VS Code, CLI) create an instance
+ * session scanning, and agent removal. The CLI creates an instance
  * and register platform-specific lifecycle callbacks.
  *
  * This is the single source of truth for agent lifecycle wiring. No duplication.
@@ -452,10 +452,9 @@ export class AgentRuntime {
   // ── Restore persisted external agents (standalone) ──
 
   /**
-   * Re-create external agents from the adapter's persistence on startup.
-   * Only external agents are restorable here (no terminal to rebind).
-   * VS Code uses its own restoreAgents() in agentManager.ts to also handle
-   * terminal agents via vscode.window.terminals.
+   * Re-create external (adopted) agents from the adapter's persistence on
+   * startup. Only external agents are restorable: they are the only kind the
+   * web server creates.
    */
   restoreExternalAgents(): void {
     const adapter = this.store.getAdapter();
@@ -486,7 +485,6 @@ export class AgentRuntime {
       const agent: AgentState = {
         id: p.id,
         sessionId: p.sessionId || path.basename(p.jsonlFile, '.jsonl'),
-        terminalRef: undefined,
         isExternal: true,
         projectDir: p.projectDir,
         jsonlFile: p.jsonlFile,

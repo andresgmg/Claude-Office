@@ -215,9 +215,7 @@ function isPixelAgentsHookCommand(homeDir, command) {
     path.join(homeDir, '.pixel-agents', 'hooks', 'claude-hook.js'),
   );
 
-  return (
-    normalizedCommand.includes(currentHookPath)
-  );
+  return normalizedCommand.includes(currentHookPath);
 }
 
 function resolveTemplateString(template, context) {
@@ -277,10 +275,7 @@ function buildContext(homeDir, scenario, sessionId, cwd) {
 
   for (const sessionDefinition of scenario.sessions || []) {
     const resolvedSessionId = resolveTemplateString(sessionDefinition.sessionIdTemplate, context);
-    const resolvedCwd = resolveTemplateString(
-      sessionDefinition.cwdTemplate || '{{cwd}}',
-      context,
-    );
+    const resolvedCwd = resolveTemplateString(sessionDefinition.cwdTemplate || '{{cwd}}', context);
     const resolvedTranscriptPath = sessionDefinition.transcriptPathTemplate
       ? resolveTemplateString(sessionDefinition.transcriptPathTemplate, context)
       : undefined;
@@ -321,7 +316,7 @@ function buildContext(homeDir, scenario, sessionId, cwd) {
 
 function runHookCommand(command, payload, env, cwd) {
   // The hook command in settings.json is `node "<script>"` (bare `node`). On
-  // macOS the VS Code integrated-terminal e2e profile sets a hardcoded PATH
+  // macOS an integrated-terminal e2e profile may set a hardcoded PATH
   // (mockBin:/usr/local/bin:/usr/bin:/bin) with inheritEnv:false, which on CI
   // runners does NOT include the toolcache node dir — so bare `node` exits 127
   // and the hook never POSTs. The mock itself survives because its wrapper uses
@@ -365,7 +360,11 @@ async function emitHook(homeDir, context, payload) {
   for (const entry of entries) {
     const hooks = Array.isArray(entry?.hooks) ? entry.hooks : [];
     for (const hook of hooks) {
-      if (hook?.type !== 'command' || typeof hook.command !== 'string' || hook.command.length === 0) {
+      if (
+        hook?.type !== 'command' ||
+        typeof hook.command !== 'string' ||
+        hook.command.length === 0
+      ) {
         continue;
       }
       if (!isPixelAgentsHookCommand(homeDir, hook.command)) {
@@ -520,12 +519,11 @@ async function main() {
   await playScenario(homeDir, scenario, context);
 }
 
-main()
-  .catch((error) => {
-    const homeDir = os.homedir();
-    logAction(
-      homeDir,
-      `error ${error instanceof Error ? error.stack || error.message : String(error)}`,
-    );
-    process.exitCode = 1;
-  });
+main().catch((error) => {
+  const homeDir = os.homedir();
+  logAction(
+    homeDir,
+    `error ${error instanceof Error ? error.stack || error.message : String(error)}`,
+  );
+  process.exitCode = 1;
+});

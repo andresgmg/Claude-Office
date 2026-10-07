@@ -5,6 +5,7 @@
     "moduleResolution": "node",
     "lib": ["ES2022", "DOM"],
     "strict": true,
+    "skipLibCheck": true,
     "allowUnreachableCode": false,
     "noFallthroughCasesInSwitch": true,
     "noUnusedLocals": true,

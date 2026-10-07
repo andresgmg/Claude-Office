@@ -9,7 +9,7 @@
 //   - existingAgents before layoutLoaded → buffer, flush on the next layoutLoaded
 //   - layoutLoaded before existingAgents → layout + seats already built, add now
 // Depending on layoutLoaded always arriving last stranded restored agents on any
-// surface that sends layout first (e.g. the VS Code no-assets path), issue #334.
+// surface that sends layout first (e.g. a no-assets path), issue #334.
 
 /** Per-agent seat metadata carried by the existingAgents message. */
 export interface ExistingAgentMeta {

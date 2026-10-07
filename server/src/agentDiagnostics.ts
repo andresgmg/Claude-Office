@@ -22,7 +22,7 @@ export interface AgentDiagnosticsEntry {
 /**
  * Build the connection-diagnostics payload for every agent in the store.
  *
- * Shared by the VS Code adapter and the standalone server so both surfaces emit
+ * Used by the server so every surface emits
  * an identical `agentDiagnostics` payload. `jsonlExists` and `fileSize` are
  * coupled: both come from a single `fs.statSync` (the "has data but 0 lines"
  * Debug View branch depends on this), while `projectDirExists` is a separate

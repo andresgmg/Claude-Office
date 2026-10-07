@@ -35,16 +35,9 @@ export interface StandaloneSession {
 }
 
 export interface LaunchStandaloneOptions {
-  /** Reuse an existing isolated HOME (for cross-surface multi-server tests).
-   *  A supplied directory is never removed by standalone cleanup. */
-  homeDir?: string;
-  /** Reuse an existing workspace. A supplied directory is never removed by
-   *  standalone cleanup. */
-  workspaceDir?: string;
   /** Pre-seed a granted Claude hooksConsent entry so the first-run dialog never
    *  covers the office (default). The consent specs opt out with `false` —
-   *  they are the only ones that want the dialog. Never overwrites a
-   *  config.json that already exists (a shared HOME was seeded by its owner). */
+   *  they are the only ones that want the dialog. */
   seedHooksConsent?: boolean;
 }
 
@@ -224,21 +217,12 @@ export async function launchStandalone(
   page: Page,
   options: LaunchStandaloneOptions = {},
 ): Promise<StandaloneSession> {
-  const ownsHome = options.homeDir === undefined;
-  const ownsWorkspace = options.workspaceDir === undefined;
-  const tmpHome =
-    options.homeDir ?? fs.mkdtempSync(path.join(os.tmpdir(), 'pixel-standalone-e2e-home-'));
-  const workspaceDir =
-    options.workspaceDir ??
-    fs.mkdtempSync(path.join(os.tmpdir(), 'pixel-standalone-e2e-workspace-'));
-  fs.mkdirSync(tmpHome, { recursive: true });
-  fs.mkdirSync(workspaceDir, { recursive: true });
-  // Consent baseline, mirroring the VS Code launch helper: without it the CLI
-  // asks over the tokened /ws handshake and the in-app dialog covers the
-  // office in every spec. Only when the file does not exist yet — a shared
-  // HOME (multi-server) was already seeded by the surface that owns it.
-  const configPath = path.join(tmpHome, '.pixel-agents', 'config.json');
-  if ((options.seedHooksConsent ?? true) && !fs.existsSync(configPath)) {
+  const tmpHome = fs.mkdtempSync(path.join(os.tmpdir(), 'pixel-standalone-e2e-home-'));
+  const workspaceDir = fs.mkdtempSync(path.join(os.tmpdir(), 'pixel-standalone-e2e-workspace-'));
+  // Consent baseline: without it the CLI asks over the tokened /ws handshake
+  // and the in-app dialog covers the office in every spec.
+  if (options.seedHooksConsent ?? true) {
+    const configPath = path.join(tmpHome, '.pixel-agents', 'config.json');
     fs.mkdirSync(path.dirname(configPath), { recursive: true });
     fs.writeFileSync(configPath, JSON.stringify({ hooksConsent: { claude: 'granted' } }, null, 2));
   }
@@ -292,14 +276,14 @@ export async function launchStandalone(
       },
       cleanup: async () => {
         await stopProcess(hostProcess);
-        if (ownsHome) fs.rmSync(tmpHome, { recursive: true, force: true });
-        if (ownsWorkspace) fs.rmSync(workspaceDir, { recursive: true, force: true });
+        fs.rmSync(tmpHome, { recursive: true, force: true });
+        fs.rmSync(workspaceDir, { recursive: true, force: true });
       },
     };
   } catch (error) {
     await stopProcess(hostProcess);
-    if (ownsHome) fs.rmSync(tmpHome, { recursive: true, force: true });
-    if (ownsWorkspace) fs.rmSync(workspaceDir, { recursive: true, force: true });
+    fs.rmSync(tmpHome, { recursive: true, force: true });
+    fs.rmSync(workspaceDir, { recursive: true, force: true });
     throw error;
   }
 }

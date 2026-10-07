@@ -5,6 +5,8 @@ import path from 'node:path';
 import test from 'node:test';
 
 import {
+  EXPECTED_PACKAGE_NAME,
+  EXPECTED_REPOSITORY_URL,
   getPublicationDecision,
   normalizePackMetadata,
   parsePackJsonOutput,
@@ -23,13 +25,13 @@ function validFiles() {
 }
 
 test('normalizes npm pack array and keyed-object output', () => {
-  const metadata = { filename: 'pixel-agents-1.4.0.tgz', files: validFiles() };
+  const metadata = { filename: 'claude-office-0.1.0.tgz', files: validFiles() };
   assert.equal(normalizePackMetadata([metadata]), metadata);
-  assert.equal(normalizePackMetadata({ 'pixel-agents@1.4.0': metadata }), metadata);
+  assert.equal(normalizePackMetadata({ 'claude-office@0.1.0': metadata }), metadata);
 });
 
 test('extracts pack JSON after lifecycle build output', () => {
-  const metadata = [{ filename: 'pixel-agents-1.4.0.tgz', files: validFiles() }];
+  const metadata = [{ filename: 'claude-office-0.1.0.tgz', files: validFiles() }];
   const output = `[generate-messages] built protocol\nHUSKY=0 skip install${JSON.stringify(metadata)}`;
   assert.deepEqual(parsePackJsonOutput(output), metadata);
 });
@@ -55,9 +57,9 @@ test('rejects source and preview files even when required files exist', () => {
 
 test('validates release tag, ref, repository, and monotonic version', () => {
   const manifest = {
-    name: 'pixel-agents',
+    name: EXPECTED_PACKAGE_NAME,
     version: '1.4.0',
-    repository: { url: 'https://github.com/pixel-agents-hq/pixel-agents' },
+    repository: { url: EXPECTED_REPOSITORY_URL },
   };
   assert.doesNotThrow(() =>
     validateReleaseIdentity({
@@ -105,8 +107,8 @@ test('publishes only absent versions and treats integrity safely', () => {
 });
 
 test('rejects a tarball changed after its metadata was created', () => {
-  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'pixel-agents-integrity-test-'));
-  const tarballPath = path.join(tmpDir, 'pixel-agents.tgz');
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'claude-office-integrity-test-'));
+  const tarballPath = path.join(tmpDir, 'claude-office.tgz');
   const verifiedIntegrity =
     'sha512-RkN76vtkA1+8p/GSGfbyKAGc1SvEWGcyy0e6CVFdcQKBmX1sAD93WjE7XaXvLvWCO8Q8zHEugymaUbvwb3dBXg==';
   try {

@@ -56,13 +56,13 @@ export interface ClientMessageContext {
    * Whether this client may send messages that reach OUTSIDE `~/.pixel-agents/`
    * — today only `setHooksEnabled`, which grants machine-wide consent to modify
    * `~/.claude/settings.json`. Decided per-connection by the transport
-   * (httpServer's standaloneTokenValid, or the embedded Bearer token); defaults
-   * to false so a caller that forgets to pass it gets the safe answer.
+   * (httpServer's standaloneTokenValid); defaults to false so a caller that
+   * forgets to pass it gets the safe answer.
    */
   privileged?: boolean;
 }
 
-// ── Setting key constants (mirror adapters/vscode/constants.ts) ──
+// ── Setting key constants (persisted through the state adapter) ──
 const KEY_SOUND_ENABLED = 'pixel-agents.soundEnabled';
 const KEY_LAST_SEEN_VERSION = 'pixel-agents.lastSeenVersion';
 const KEY_ALWAYS_SHOW_LABELS = 'pixel-agents.alwaysShowLabels';
@@ -271,8 +271,7 @@ export function handleClientMessage(
     }
 
     default:
-      // focusAgent, exportLayout, importLayout
-      // require IDE-specific handling (not yet implemented for standalone)
+      // Unknown or client-only message types are ignored.
       break;
   }
 }
@@ -444,7 +443,7 @@ function handleWebviewReady(send: WsSend, ctx: ClientMessageContext): void {
       .then((installed) => {
         send({ type: 'hooksStatus', providerId: provider.id, installed });
         // 4a-bis. First-run consent, asked in the app: this connect is the moment the user can be asked, so the ask
-        // rides the handshake and consentGate owns every condition (VS Code calls the same function). The record is
+        // rides the handshake and consentGate owns every condition. The record is
         // re-read here rather than taken from startup — another tab may have answered while this one loaded.
         // Dismissing sends nothing, so the ask returns on the next connect: fail-closed, never nagging in-session.
         const request = hooksConsentRequest(
@@ -474,10 +473,10 @@ function handleWebviewReady(send: WsSend, ctx: ClientMessageContext): void {
     runtime.hooksEnabled.current = hooksEnabled;
   }
 
-  // 5. Restore persisted external agents (standalone only; VS Code handles its own restore)
+  // 5. Restore persisted external agents
   runtime?.restoreExternalAgents();
 
-  // 6. Existing agents (either just restored, or from VS Code adapter if present)
+  // 6. Existing agents (just restored, or already running)
   const agentIds: number[] = [];
   const folderNames: Record<number, string> = {};
   const externalAgents: Record<number, boolean> = {};

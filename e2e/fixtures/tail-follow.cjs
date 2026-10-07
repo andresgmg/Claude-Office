@@ -3,7 +3,7 @@
 // has no tail). Follows one OR MORE narration logs from the beginning, surviving
 // files that don't exist yet and truncation. Because it starts at byte 0, a tab
 // opened mid-test replays the whole story so far. Runs until its terminal is
-// closed (VS Code teardown kills the shell tree).
+// closed (the harness teardown kills the shell tree).
 //
 //   node tail-follow.cjs <style> <file> [file...]
 //     styles: monitor | external | test | none

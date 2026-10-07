@@ -19,19 +19,20 @@ import {
 } from '../office/toolUtils.js';
 import type { OfficeLayout, ToolActivity } from '../office/types.js';
 import { setWallSprites } from '../office/wallTiles.js';
-import { isBrowserRuntime, isE2E } from '../runtime.js';
+import { isE2E } from '../runtime.js';
 import { transport } from '../transport/index.js';
 
 /**
- * A Headless agent is one the office adopted from outside (`claude -p`, a session
- * picked up by Watch All Sessions) and therefore has no terminal to focus. Its
- * character renders translucent so it reads as untouchable at a glance.
- *
- * Standalone is exempt: that adapter has no terminals at all, so every agent
- * would qualify and the cue would distinguish nothing.
+ * A Headless agent is one the office adopted from outside and therefore has no
+ * terminal to focus; its character could render translucent as a cue. The web
+ * server has no terminals at all, so every agent would qualify and the cue
+ * would distinguish nothing — it stays off. The plumbing (renderer alpha,
+ * `setGhostHeadlessAgents` setting) is kept until the feature is removed
+ * end to end.
  */
+const HEADLESS_CUE_ENABLED = false;
 const isHeadlessAgent = (isExternal: boolean | undefined): boolean =>
-  isExternal === true && !isBrowserRuntime;
+  isExternal === true && HEADLESS_CUE_ENABLED;
 
 export interface SubagentCharacter {
   id: number;
@@ -63,11 +64,6 @@ interface FurnitureAsset {
   frame?: number;
 }
 
-export interface WorkspaceFolder {
-  name: string;
-  path: string;
-}
-
 interface ExtensionMessageState {
   agents: number[];
   selectedAgent: number | null;
@@ -78,7 +74,6 @@ interface ExtensionMessageState {
   layoutReady: boolean;
   layoutWasReset: boolean;
   loadedAssets?: { catalog: FurnitureAsset[]; sprites: Record<string, string[][]> };
-  workspaceFolders: WorkspaceFolder[];
   /** Distinct folderNames seen across agents this session — source for the Areas folder dropdown. */
   agentFolderNames: string[];
   externalAssetDirectories: string[];
@@ -134,7 +129,6 @@ export function useExtensionMessages(
   const [loadedAssets, setLoadedAssets] = useState<
     { catalog: FurnitureAsset[]; sprites: Record<string, string[][]> } | undefined
   >();
-  const [workspaceFolders, setWorkspaceFolders] = useState<WorkspaceFolder[]>([]);
   const [agentFolderNames, setAgentFolderNames] = useState<string[]>([]);
   const [externalAssetDirectories, setExternalAssetDirectories] = useState<string[]>([]);
   const [lastSeenVersion, setLastSeenVersion] = useState('');
@@ -468,9 +462,6 @@ export function useExtensionMessages(
         }
         os.setAgentTool(id, null);
         os.clearPermissionBubble(id);
-      } else if (msg.type === 'agentSelected') {
-        const id = msg.id as number;
-        setSelectedAgent(id);
       } else if (msg.type === 'agentStatus') {
         const id = msg.id as number;
         const status = msg.status as string;
@@ -641,9 +632,6 @@ export function useExtensionMessages(
         const mappings = (msg.mappings ?? {}) as Record<string, string[]>;
         setAreaMappings(mappings);
         os.setAreaMappings(mappings);
-      } else if (msg.type === 'workspaceFolders') {
-        const folders = msg.folders as WorkspaceFolder[];
-        setWorkspaceFolders(folders);
       } else if (msg.type === 'settingsLoaded') {
         const soundOn = msg.soundEnabled as boolean;
         setSoundEnabled(soundOn);
@@ -768,7 +756,6 @@ export function useExtensionMessages(
     layoutReady,
     layoutWasReset,
     loadedAssets,
-    workspaceFolders,
     agentFolderNames,
     externalAssetDirectories,
     lastSeenVersion,

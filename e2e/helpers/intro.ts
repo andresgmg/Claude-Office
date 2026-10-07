@@ -3,9 +3,9 @@ import { expect } from '@playwright/test';
 
 /**
  * Drivers for the Intro — the four-step first-run tour the greeter speaks
- * (webview-ui/src/components/IntroBubble.tsx). Locator-based so the same
- * helpers drive both surfaces: the VS Code webview frame and the standalone
- * browser page.
+ * (webview-ui/src/components/IntroBubble.tsx). Callers pass the dialog
+ * locator (`page.getByRole('dialog')`), so the helpers never touch the page
+ * itself.
  *
  * Step content is asserted between clicks rather than clicking "Continue"
  * twice blind: the button keeps its accessible name across steps, so two

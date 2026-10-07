@@ -25,7 +25,7 @@ const SERVERS_REGISTRY_DIR = path.join(os.homedir(), SERVER_JSON_DIR, SERVERS_DI
  * error/timeout/status). Zero cost when the env var is unset.
  */
 // Env var is the primary source, but it doesn't reliably reach this spawned
-// process across platforms (macOS VS Code terminal profiles with
+// process across platforms (macOS terminal profiles with
 // inheritEnv:false, etc.). After reading the registry we fall back to a
 // live server's `debugLog` field, which the server populated from the same
 // env var.
@@ -52,8 +52,8 @@ function isProcessAlive(pid: number): boolean {
 
 /**
  * Enumerate every live registry entry under ~/.pixel-agents/servers/, so the
- * event can fan out to each running server (VS Code embedded + a standalone
- * `npx pixel-agents`, or several of either, all at once). Entries whose owning
+ * event can fan out to each running server (several CLI instances at once,
+ * e.g. one per project). Entries whose owning
  * PID is no longer alive are skipped (the owning server prunes its own stale
  * file on next start; this script only needs to not POST to it). Returns an
  * empty array when the directory is absent/empty/unreadable -- the caller

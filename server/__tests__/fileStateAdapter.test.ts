@@ -61,25 +61,6 @@ describe('FileStateAdapter', () => {
     expect(getHooksEnabled('claude')).toBe(false);
   });
 
-  it('vscode and standalone namespaces are isolated in config.json', () => {
-    const vscode = new FileStateAdapter({ namespace: 'vscode' });
-    const standalone = new FileStateAdapter({ namespace: 'standalone' });
-
-    vscode.setSetting('pixel-agents.watchAllSessions', true);
-    standalone.setSetting('pixel-agents.watchAllSessions', false);
-
-    expect(vscode.getSetting('pixel-agents.watchAllSessions', null)).toBe(true);
-    expect(standalone.getSetting('pixel-agents.watchAllSessions', null)).toBe(false);
-
-    const configPath = path.join(tempHome, '.pixel-agents', 'config.json');
-    const parsed = JSON.parse(fs.readFileSync(configPath, 'utf-8')) as Record<
-      string,
-      Record<string, unknown>
-    >;
-    expect(parsed.vscode.watchAllSessions).toBe(true);
-    expect(parsed.standalone.watchAllSessions).toBe(false);
-  });
-
   it('ignores unknown setting keys (returns default, does not write)', () => {
     const adapter = new FileStateAdapter({ namespace: 'standalone' });
     expect(adapter.getSetting('pixel-agents.unknownKey', 'fallback')).toBe('fallback');
@@ -120,7 +101,6 @@ describe('FileStateAdapter', () => {
       {
         id: 1,
         sessionId: 'sess-1',
-        terminalName: 'Claude Code #1',
         jsonlFile: '/tmp/sess-1.jsonl',
         projectDir: '/tmp/proj',
       },
@@ -130,31 +110,16 @@ describe('FileStateAdapter', () => {
   });
 
   it('writes state at ~/.pixel-agents/<namespace>-state.json', () => {
-    const adapter = new FileStateAdapter({ namespace: 'vscode' });
+    const adapter = new FileStateAdapter({ namespace: 'standalone' });
     adapter.saveSeats({ '1': { palette: 2, hueShift: 45 } });
-    const stateFile = path.join(tempHome, '.pixel-agents', 'vscode-state.json');
+    const stateFile = path.join(tempHome, '.pixel-agents', 'standalone-state.json');
     expect(fs.existsSync(stateFile)).toBe(true);
-  });
-
-  it('vscode and standalone state files are independent', () => {
-    const vscode = new FileStateAdapter({ namespace: 'vscode' });
-    const standalone = new FileStateAdapter({ namespace: 'standalone' });
-    const agentVs: PersistedAgent[] = [
-      { id: 1, terminalName: 'A', jsonlFile: '/a.jsonl', projectDir: '/proj' },
-    ];
-    const agentSa: PersistedAgent[] = [
-      { id: 9, terminalName: '', jsonlFile: '/b.jsonl', projectDir: '/proj' },
-    ];
-    vscode.saveAgents(agentVs);
-    standalone.saveAgents(agentSa);
-    expect(vscode.loadAgents()).toEqual(agentVs);
-    expect(standalone.loadAgents()).toEqual(agentSa);
   });
 
   it('preserves seats when saving agents (and vice versa)', () => {
     const adapter = new FileStateAdapter({ namespace: 'standalone' });
     adapter.saveSeats({ '1': { palette: 3 } });
-    adapter.saveAgents([{ id: 1, terminalName: 'x', jsonlFile: '/x.jsonl', projectDir: '/tmp' }]);
+    adapter.saveAgents([{ id: 1, jsonlFile: '/x.jsonl', projectDir: '/tmp' }]);
     expect(adapter.loadSeats()).toEqual({ '1': { palette: 3 } });
     expect(adapter.loadAgents()).toHaveLength(1);
   });

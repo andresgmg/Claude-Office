@@ -7,7 +7,7 @@
  *       provider ships.)
  *   2. Add an export line below.
  *
- * The adapter (VS Code extension, standalone CLI, etc.) imports from here rather
+ * The CLI imports from here rather
  * than reaching into each provider directory directly.
  */
 
