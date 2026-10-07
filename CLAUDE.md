@@ -81,7 +81,7 @@ webview-ui/                          React 19 + Canvas UI (depends only on core/
     components/                      React UI
       BottomToolbar.tsx (Layout + Settings), SettingsModal.tsx, IntroBubble.tsx, ChangelogModal.tsx,
       ConnectionIndicator.tsx, DebugView.tsx, EditActionBar.tsx, VersionIndicator.tsx,
-      VisualColorPicker.tsx, ZoomControls.tsx, Tooltip.tsx, MigrationNotice.tsx, ui/Button.tsx
+      VisualColorPicker.tsx, ZoomControls.tsx, Tooltip.tsx, ui/Button.tsx
     hooks/
       useExtensionMessages.ts        Message handler — translates ServerMessage into OfficeState mutations
       useEditorActions.ts            Editor state + callbacks

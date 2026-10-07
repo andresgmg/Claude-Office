@@ -427,8 +427,7 @@ components:
     LayoutLoaded:
       description: |
         Office layout (tiles, furniture, colors). `null` when no layout file or
-        bundled default exists. `wasReset` is true when the bundled default
-        replaced an outdated user layout.
+        bundled default exists.
       type: object
       additionalProperties: false
       required: [type, layout]
@@ -443,8 +442,6 @@ components:
                 Format defined by the OfficeLayout schema in webview-ui; not
                 modeled here because it's owned by the rendering layer.
             - type: 'null'
-        wasReset:
-          type: boolean
 
     FurnitureAssetsLoaded:
       description: Furniture catalog and sprite data, sent once after webviewReady.

@@ -7,7 +7,6 @@ import { ConnectionIndicator } from './components/ConnectionIndicator.js';
 import { DebugView } from './components/DebugView.js';
 import { EditActionBar } from './components/EditActionBar.js';
 import { IntroBubble } from './components/IntroBubble.js';
-import { MigrationNotice } from './components/MigrationNotice.js';
 import { SettingsModal } from './components/SettingsModal.js';
 import { Tooltip } from './components/Tooltip.js';
 import { Modal } from './components/ui/Modal.js';
@@ -73,7 +72,6 @@ function App() {
     subagentTools,
     subagentCharacters,
     layoutReady,
-    layoutWasReset,
     loadedAssets,
     agentFolderNames,
     externalAssetDirectories,
@@ -93,10 +91,6 @@ function App() {
     showAreas,
     setShowAreas,
   } = useExtensionMessages(getOfficeState, editor.setLastSavedLayout, isEditDirty);
-
-  // Show migration notice once layout reset is detected
-  const [migrationNoticeDismissed, setMigrationNoticeDismissed] = useState(false);
-  const showMigrationNotice = layoutWasReset && !migrationNoticeDismissed;
 
   const [isChangelogOpen, setIsChangelogOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
@@ -547,10 +541,6 @@ function App() {
         onImportLayout={handleImportLayout}
       />
 
-      {showMigrationNotice && (
-        <MigrationNotice onDismiss={() => setMigrationNoticeDismissed(true)} />
-      )}
-
       {intro && (
         <IntroBubble
           officeState={officeState}
@@ -564,11 +554,7 @@ function App() {
           onChoice={handleConsentChoice}
           onClose={handleIntroClose}
           escapeSuppressed={
-            isSettingsOpen ||
-            isChangelogOpen ||
-            isHooksInfoOpen ||
-            showMigrationNotice ||
-            editor.isEditMode
+            isSettingsOpen || isChangelogOpen || isHooksInfoOpen || editor.isEditMode
           }
         />
       )}

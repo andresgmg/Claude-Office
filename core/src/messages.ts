@@ -179,7 +179,6 @@ export interface AgentContextUsage {
 export interface LayoutLoaded {
   type: 'layoutLoaded';
   layout: Record<string, any> | null;
-  wasReset?: boolean;
 }
 
 export interface FurnitureAssetsLoaded {

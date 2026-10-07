@@ -1,5 +1,4 @@
 // ── JSONL File Watching ─────────────────────────────────────
-export const JSONL_POLL_INTERVAL_MS = 1000;
 export const FILE_WATCHER_POLL_INTERVAL_MS = 500;
 export const PROJECT_SCAN_INTERVAL_MS = 1000;
 
@@ -15,8 +14,6 @@ export const TOOL_DONE_DELAY_MS = 300;
 export const PERMISSION_TIMER_DELAY_MS = 7000;
 /** Heuristic: silence duration before marking a text-only turn as complete */
 export const TEXT_IDLE_DELAY_MS = 5000;
-/** Heuristic: idle threshold for per-agent /clear detection (content check prevents stealing) */
-export const CLEAR_IDLE_THRESHOLD_MS = 2000;
 
 // ── External Session Detection ──────────────────────────────
 export const EXTERNAL_SCAN_INTERVAL_MS = 3000;

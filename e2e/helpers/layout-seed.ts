@@ -4,11 +4,9 @@
  * recognises it in the applied OfficeState by its unique area label.
  *
  * The layout carries a layoutRevision far above the bundled default's: the
- * server resets a persisted layout whose revision is below the bundled one
- * (server/src/layoutPersistence.ts `loadLayout`), and the webview runs its
- * legacy-format migrations only when the revision is missing
- * (webview-ui/src/office/layout/layoutSerializer.ts). A high revision keeps a
- * seeded layout out of both paths.
+ * webview runs its legacy-format migrations only when the revision is missing
+ * (webview-ui/src/office/layout/layoutSerializer.ts), so a high revision keeps
+ * a seeded layout out of that path and out of any future revision-based reset.
  */
 
 /** Far above the bundled default-layout revision so a seeded layout survives load. */
