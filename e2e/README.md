@@ -1,4 +1,4 @@
-# Pixel Agents e2e tests
+# Claude Office e2e tests
 
 Playwright end-to-end tests for the standalone web server. Each test starts the CLI (`dist/cli.js`) with an isolated `HOME` and workspace, then opens the URL the CLI prints in Playwright's Chromium. This README is the single source of truth for what's e2e-tested, what's not, and how to run the suite.
 
@@ -12,7 +12,7 @@ The standalone CLI, driven through its public seams: the hook endpoint the insta
 
 - **Hook-driven lifecycle** (`standalone/hooks.spec.ts`) — `SessionStart` only stages a pending session (no character); `PreToolUse` creates the agent and shows its tool label; `PermissionRequest`, `PostToolUse`, `Notification` and `SessionEnd` move the overlay and the `/ws` broadcasts (`agentCreated`, `agentToolStart`, `agentToolPermission`, `agentToolDone`, `agentToolsClear`, `agentStatus`, `agentClosed`) in lockstep.
 - **Hooks consent gate** (`standalone/hooks.spec.ts`) — with no seeded consent, the page opened on the printed (tokened) URL shows the Intro, and _Install Hooks_ writes the hook entries to `~/.claude/settings.json` plus a granted `hooksConsent`; a page opened on the bare URL (a spectator) is never asked; after _Not Now_, the Settings checkbox mirrors the real install state and clicking it is the consent grant.
-- **Browser UI** (`standalone/ui.spec.ts`) — closing an agent from its overlay despawns the character; Debug View renders JSONL diagnostics; adding an external asset directory re-broadcasts the sprites; Export Layout downloads `pixel-agents-layout.json`; Import Layout applies the chosen file; the connection indicator appears when the host drops and clears once it is back.
+- **Browser UI** (`standalone/ui.spec.ts`) — closing an agent from its overlay despawns the character; Debug View renders JSONL diagnostics; adding an external asset directory re-broadcasts the sprites; Export Layout downloads `claude-office-layout.json`; Import Layout applies the chosen file; the connection indicator appears when the host drops and clears once it is back.
 
 ## What's NOT covered (gaps + deferred)
 
@@ -22,7 +22,7 @@ Scenarios that exist as product behavior but are not in the automated suite. PRs
 | ------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------- |
 | Agent lifecycle beyond the basic hook flow (`/clear`, `--resume`, parallel sub-agents, teams, lead `SessionEnd` cascade) | The server-side engine is covered by `server/__tests__`; e2e needs a fixture that spawns `e2e/fixtures/mock-claude-runner.cjs` against the isolated `HOME` so the transcripts and hook POSTs come from a real process                                                                                                 | none                         |
 | Hooks-off detection (JSONL polling, heuristic permission timers)                                                         | Same fixture gap: needs a process writing transcripts under `~/.claude/projects`                                                                                                                                                                                                                                      | none                         |
-| Layout editor interactions (furniture, carpet, areas, pets)                                                              | The SPA runs unchanged in the browser; specs can drive the editor through the toolbar and the `window.__pixelAgentsTestHooks` surface typed in `e2e/helpers/editor.ts`                                                                                                                                                | none                         |
+| Layout editor interactions (furniture, carpet, areas, pets)                                                              | The SPA runs unchanged in the browser; specs can drive the editor through the toolbar and the `window.__claudeOfficeTestHooks` surface typed in `e2e/helpers/editor.ts`                                                                                                                                               | none                         |
 | External asset pack loading and directory removal                                                                        | Adding a directory is covered at light depth (the re-broadcast fires); loading real sprites needs bundled test asset packs                                                                                                                                                                                            | none                         |
 | Intro consent variants (_Don't Ask Again_, _Back_, failed install / uninstall reporting, third-party hook preservation)  | Only the token boundary, the _Install_ route and the checkbox route are pinned e2e; the gate and installer are unit-tested in `server/__tests__` (`consentFlow`, `consentGate`, `claudeHookInstaller`); the remaining variants can be ported onto the standalone fixture with `test.use({ seedHooksConsent: false })` | none                         |
 | Producer/viewer relay scenarios (multi-viewer replay, producer reconnect reconciliation)                                 | Producer endpoint not yet built                                                                                                                                                                                                                                                                                       | `feat/producer-viewer-split` |
@@ -52,7 +52,7 @@ CI green on this suite is the safety net for behavioral regressions. The checks 
 
 **First-run experience** (before publishing):
 
-- Delete `~/.pixel-agents/` entirely and start the CLI fresh — default layout loads, the Intro appears on the printed URL, no console errors, hooks install when you accept.
+- Delete `~/.claude-office/` entirely and start the CLI fresh — default layout loads, the Intro appears on the printed URL, no console errors, hooks install when you accept.
 
 **Platform sanity** (CI hosts ≠ your machine):
 
@@ -61,7 +61,7 @@ CI green on this suite is the safety net for behavioral regressions. The checks 
 ## Running
 
 ```bash
-cd pixel-agents
+cd claude-office
 npm run compile && npm run e2e               # full suite (under a minute)
 
 npm run e2e -- --grep "hooks consent"        # filter by describe title
@@ -77,15 +77,15 @@ npm run test:report:open                     # serve + open the Allure dashboard
 
 ## Test model & rules
 
-E2E tests drive Pixel Agents through its **public seams**, never by poking internals:
+E2E tests drive Claude Office through its **public seams**, never by poking internals:
 
-- **The hook endpoint.** Specs POST hook events to `/api/hooks/claude` with the Bearer token from `~/.pixel-agents/server.json` (`sendHookEvent` in `e2e/helpers/hooks.ts`) — the same request the installed `claude-hook.js` makes. The payload builders (`sessionStartStartup`, `preToolUseBash`, ...) mirror real Claude Code events.
+- **The hook endpoint.** Specs POST hook events to `/api/hooks/claude` with the Bearer token from `~/.claude-office/server.json` (`sendHookEvent` in `e2e/helpers/hooks.ts`) — the same request the installed `claude-office-hook.js` makes. The payload builders (`sessionStartStartup`, `preToolUseBash`, ...) mirror real Claude Code events.
 - **The browser.** The fixture opens the SPA on the URL the CLI prints, exactly as an operator does. That printed line is the only channel by which a browser obtains the server token, so the fixture never reads the token out of `server.json` to build a URL — a CLI that printed a bare or wrong-tokened URL must turn the suite red, not stay green (see `waitForPrintedUrl` in `e2e/helpers/standalone.ts`).
-- **The isolated HOME.** Every test gets a fresh `HOME` and workspace; assertions about persistence read the files the product writes there (`~/.claude/settings.json`, `~/.pixel-agents/config.json`).
+- **The isolated HOME.** Every test gets a fresh `HOME` and workspace; assertions about persistence read the files the product writes there (`~/.claude/settings.json`, `~/.claude-office/config.json`).
 
 Rules for a correct test:
 
-- **Assert on observable outcomes**: overlays and dialogs on the page, the `/ws` broadcasts the page received (`standalone.drainMessages()`, recorded by a `WebSocket` proxy installed before navigation), the test hooks the SPA exposes for canvas-only state (`window.__pixelAgentsTestHooks`), and files under the isolated `HOME`. Never assert on server internals.
+- **Assert on observable outcomes**: overlays and dialogs on the page, the `/ws` broadcasts the page received (`standalone.drainMessages()`, recorded by a `WebSocket` proxy installed before navigation), the test hooks the SPA exposes for canvas-only state (`window.__claudeOfficeTestHooks`), and files under the isolated `HOME`. Never assert on server internals.
 - **Consent is seeded by default.** The fixture writes a granted `hooksConsent` so the Intro never covers the office; only the consent specs opt out with `test.use({ seedHooksConsent: false })`.
 - **Follow the wait-strategy conventions** documented in `e2e/helpers/office.ts`: poll for positive assertions, settle briefly before negative ones, re-assert after a fixed wait for stability checks.
 - **Drive the real UI.** Settings go through the modal (`e2e/helpers/webview.ts`), the Intro through its buttons (`e2e/helpers/intro.ts`). Test hooks are for reading canvas state, plus the one action a canvas click would otherwise require (`selectAgent`).
@@ -94,9 +94,9 @@ Rules for a correct test:
 
 ## What to read before adding a test
 
-- `pixel-agents/CLAUDE.md` — architecture and message protocol
-- `pixel-agents/e2e/fixtures/standalone.ts` — fixture lifecycle (launch, attachments, cleanup)
-- `pixel-agents/e2e/helpers/` — `standalone.ts` (CLI spawn and the printed-URL contract), `hooks.ts`, `office.ts`, `webview.ts`, `intro.ts`
+- `claude-office/CLAUDE.md` — architecture and message protocol
+- `claude-office/e2e/fixtures/standalone.ts` — fixture lifecycle (launch, attachments, cleanup)
+- `claude-office/e2e/helpers/` — `standalone.ts` (CLI spawn and the printed-URL contract), `hooks.ts`, `office.ts`, `webview.ts`, `intro.ts`
 
 When you add a new test:
 

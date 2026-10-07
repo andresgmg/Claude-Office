@@ -2,8 +2,8 @@
 
 El servidor acepta en `POST /api/hooks/claude` el JSON crudo que Claude Code entrega a
 sus hooks, autenticado con `Authorization: Bearer <token>`. Por defecto el token cambia en
-cada arranque (se imprime en la URL y se guarda en `~/.pixel-agents/server.json`), lo que
-obliga a usar el script local `claude-hook.js`, que lo descubre en cada evento.
+cada arranque (se imprime en la URL y se guarda en `~/.claude-office/server.json`), lo que
+obliga a usar el script local `claude-office-hook.js`, que lo descubre en cada evento.
 
 Con un token fijo se puede configurar un hook `http` nativo de Claude Code una sola vez.
 Es la base para recibir eventos desde otras máquinas y desde sesiones cloud en la fase 2,
@@ -12,18 +12,18 @@ y funciona igual en local.
 ## 1. Arrancar el servidor con un token fijo
 
 El token debe tener al menos 16 caracteres y no contener espacios. La variable de entorno
-`PIXEL_AGENTS_TOKEN` lo fija sin que aparezca en la lista de procesos; el flag `--token`
+`CLAUDE_OFFICE_TOKEN` lo fija sin que aparezca en la lista de procesos; el flag `--token`
 tiene prioridad sobre ella.
 
 ```powershell
 # PowerShell (Windows)
-$env:PIXEL_AGENTS_TOKEN = "cambia-esto-por-un-token-largo-y-aleatorio"
+$env:CLAUDE_OFFICE_TOKEN = "cambia-esto-por-un-token-largo-y-aleatorio"
 node dist/cli.js --port 3100
 ```
 
 ```bash
 # bash / WSL / macOS / Linux
-PIXEL_AGENTS_TOKEN="cambia-esto-por-un-token-largo-y-aleatorio" node dist/cli.js --port 3100
+CLAUDE_OFFICE_TOKEN="cambia-esto-por-un-token-largo-y-aleatorio" node dist/cli.js --port 3100
 # equivalente:
 node dist/cli.js --port 3100 --token "cambia-esto-por-un-token-largo-y-aleatorio"
 ```
@@ -34,25 +34,181 @@ el que arrancó (se avisa en consola).
 ## 2. Configurar Claude Code
 
 Añade esto a `~/.claude/settings.json` (o a `.claude/settings.json` de un proyecto). Son los
-mismos 12 eventos que instala el script local. Claude Code sustituye `$PIXEL_AGENTS_TOKEN`
+mismos 12 eventos que instala el script local. Claude Code sustituye `$CLAUDE_OFFICE_TOKEN`
 en la cabecera porque la variable está en `allowedEnvVars`; debe existir en el entorno donde
 corre Claude Code, no solo en el del servidor.
 
 ```json
 {
   "hooks": {
-    "SessionStart":       [{ "matcher": "*", "hooks": [{ "type": "http", "url": "http://127.0.0.1:3100/api/hooks/claude", "headers": { "Authorization": "Bearer $PIXEL_AGENTS_TOKEN" }, "allowedEnvVars": ["PIXEL_AGENTS_TOKEN"], "timeout": 5 }] }],
-    "SessionEnd":         [{ "matcher": "*", "hooks": [{ "type": "http", "url": "http://127.0.0.1:3100/api/hooks/claude", "headers": { "Authorization": "Bearer $PIXEL_AGENTS_TOKEN" }, "allowedEnvVars": ["PIXEL_AGENTS_TOKEN"], "timeout": 5 }] }],
-    "Stop":               [{ "matcher": "*", "hooks": [{ "type": "http", "url": "http://127.0.0.1:3100/api/hooks/claude", "headers": { "Authorization": "Bearer $PIXEL_AGENTS_TOKEN" }, "allowedEnvVars": ["PIXEL_AGENTS_TOKEN"], "timeout": 5 }] }],
-    "PermissionRequest":  [{ "matcher": "*", "hooks": [{ "type": "http", "url": "http://127.0.0.1:3100/api/hooks/claude", "headers": { "Authorization": "Bearer $PIXEL_AGENTS_TOKEN" }, "allowedEnvVars": ["PIXEL_AGENTS_TOKEN"], "timeout": 5 }] }],
-    "Notification":       [{ "matcher": "*", "hooks": [{ "type": "http", "url": "http://127.0.0.1:3100/api/hooks/claude", "headers": { "Authorization": "Bearer $PIXEL_AGENTS_TOKEN" }, "allowedEnvVars": ["PIXEL_AGENTS_TOKEN"], "timeout": 5 }] }],
-    "PreToolUse":         [{ "matcher": "*", "hooks": [{ "type": "http", "url": "http://127.0.0.1:3100/api/hooks/claude", "headers": { "Authorization": "Bearer $PIXEL_AGENTS_TOKEN" }, "allowedEnvVars": ["PIXEL_AGENTS_TOKEN"], "timeout": 5 }] }],
-    "PostToolUse":        [{ "matcher": "*", "hooks": [{ "type": "http", "url": "http://127.0.0.1:3100/api/hooks/claude", "headers": { "Authorization": "Bearer $PIXEL_AGENTS_TOKEN" }, "allowedEnvVars": ["PIXEL_AGENTS_TOKEN"], "timeout": 5 }] }],
-    "PostToolUseFailure": [{ "matcher": "*", "hooks": [{ "type": "http", "url": "http://127.0.0.1:3100/api/hooks/claude", "headers": { "Authorization": "Bearer $PIXEL_AGENTS_TOKEN" }, "allowedEnvVars": ["PIXEL_AGENTS_TOKEN"], "timeout": 5 }] }],
-    "SubagentStart":      [{ "matcher": "*", "hooks": [{ "type": "http", "url": "http://127.0.0.1:3100/api/hooks/claude", "headers": { "Authorization": "Bearer $PIXEL_AGENTS_TOKEN" }, "allowedEnvVars": ["PIXEL_AGENTS_TOKEN"], "timeout": 5 }] }],
-    "SubagentStop":       [{ "matcher": "*", "hooks": [{ "type": "http", "url": "http://127.0.0.1:3100/api/hooks/claude", "headers": { "Authorization": "Bearer $PIXEL_AGENTS_TOKEN" }, "allowedEnvVars": ["PIXEL_AGENTS_TOKEN"], "timeout": 5 }] }],
-    "TeammateIdle":       [{ "matcher": "*", "hooks": [{ "type": "http", "url": "http://127.0.0.1:3100/api/hooks/claude", "headers": { "Authorization": "Bearer $PIXEL_AGENTS_TOKEN" }, "allowedEnvVars": ["PIXEL_AGENTS_TOKEN"], "timeout": 5 }] }],
-    "TaskCompleted":      [{ "matcher": "*", "hooks": [{ "type": "http", "url": "http://127.0.0.1:3100/api/hooks/claude", "headers": { "Authorization": "Bearer $PIXEL_AGENTS_TOKEN" }, "allowedEnvVars": ["PIXEL_AGENTS_TOKEN"], "timeout": 5 }] }]
+    "SessionStart": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "http",
+            "url": "http://127.0.0.1:3100/api/hooks/claude",
+            "headers": { "Authorization": "Bearer $CLAUDE_OFFICE_TOKEN" },
+            "allowedEnvVars": ["CLAUDE_OFFICE_TOKEN"],
+            "timeout": 5
+          }
+        ]
+      }
+    ],
+    "SessionEnd": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "http",
+            "url": "http://127.0.0.1:3100/api/hooks/claude",
+            "headers": { "Authorization": "Bearer $CLAUDE_OFFICE_TOKEN" },
+            "allowedEnvVars": ["CLAUDE_OFFICE_TOKEN"],
+            "timeout": 5
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "http",
+            "url": "http://127.0.0.1:3100/api/hooks/claude",
+            "headers": { "Authorization": "Bearer $CLAUDE_OFFICE_TOKEN" },
+            "allowedEnvVars": ["CLAUDE_OFFICE_TOKEN"],
+            "timeout": 5
+          }
+        ]
+      }
+    ],
+    "PermissionRequest": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "http",
+            "url": "http://127.0.0.1:3100/api/hooks/claude",
+            "headers": { "Authorization": "Bearer $CLAUDE_OFFICE_TOKEN" },
+            "allowedEnvVars": ["CLAUDE_OFFICE_TOKEN"],
+            "timeout": 5
+          }
+        ]
+      }
+    ],
+    "Notification": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "http",
+            "url": "http://127.0.0.1:3100/api/hooks/claude",
+            "headers": { "Authorization": "Bearer $CLAUDE_OFFICE_TOKEN" },
+            "allowedEnvVars": ["CLAUDE_OFFICE_TOKEN"],
+            "timeout": 5
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "http",
+            "url": "http://127.0.0.1:3100/api/hooks/claude",
+            "headers": { "Authorization": "Bearer $CLAUDE_OFFICE_TOKEN" },
+            "allowedEnvVars": ["CLAUDE_OFFICE_TOKEN"],
+            "timeout": 5
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "http",
+            "url": "http://127.0.0.1:3100/api/hooks/claude",
+            "headers": { "Authorization": "Bearer $CLAUDE_OFFICE_TOKEN" },
+            "allowedEnvVars": ["CLAUDE_OFFICE_TOKEN"],
+            "timeout": 5
+          }
+        ]
+      }
+    ],
+    "PostToolUseFailure": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "http",
+            "url": "http://127.0.0.1:3100/api/hooks/claude",
+            "headers": { "Authorization": "Bearer $CLAUDE_OFFICE_TOKEN" },
+            "allowedEnvVars": ["CLAUDE_OFFICE_TOKEN"],
+            "timeout": 5
+          }
+        ]
+      }
+    ],
+    "SubagentStart": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "http",
+            "url": "http://127.0.0.1:3100/api/hooks/claude",
+            "headers": { "Authorization": "Bearer $CLAUDE_OFFICE_TOKEN" },
+            "allowedEnvVars": ["CLAUDE_OFFICE_TOKEN"],
+            "timeout": 5
+          }
+        ]
+      }
+    ],
+    "SubagentStop": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "http",
+            "url": "http://127.0.0.1:3100/api/hooks/claude",
+            "headers": { "Authorization": "Bearer $CLAUDE_OFFICE_TOKEN" },
+            "allowedEnvVars": ["CLAUDE_OFFICE_TOKEN"],
+            "timeout": 5
+          }
+        ]
+      }
+    ],
+    "TeammateIdle": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "http",
+            "url": "http://127.0.0.1:3100/api/hooks/claude",
+            "headers": { "Authorization": "Bearer $CLAUDE_OFFICE_TOKEN" },
+            "allowedEnvVars": ["CLAUDE_OFFICE_TOKEN"],
+            "timeout": 5
+          }
+        ]
+      }
+    ],
+    "TaskCompleted": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "http",
+            "url": "http://127.0.0.1:3100/api/hooks/claude",
+            "headers": { "Authorization": "Bearer $CLAUDE_OFFICE_TOKEN" },
+            "allowedEnvVars": ["CLAUDE_OFFICE_TOKEN"],
+            "timeout": 5
+          }
+        ]
+      }
+    ]
   }
 }
 ```
@@ -73,7 +229,7 @@ curl -s -o /dev/null -w "%{http_code}\n" -X POST -H "content-type: application/j
 
 # Con token: 200 y cuerpo "ok"
 curl -s -w " %{http_code}\n" -X POST -H "content-type: application/json" \
-  -H "Authorization: Bearer $PIXEL_AGENTS_TOKEN" \
+  -H "Authorization: Bearer $CLAUDE_OFFICE_TOKEN" \
   -d '{"hook_event_name":"SessionStart","session_id":"prueba"}' http://127.0.0.1:3100/api/hooks/claude
 ```
 

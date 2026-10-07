@@ -16,9 +16,9 @@ const SERVER_JSON = path.join(os.homedir(), SERVER_JSON_DIR, SERVER_JSON_NAME);
 const SERVERS_REGISTRY_DIR = path.join(os.homedir(), SERVER_JSON_DIR, SERVERS_DIR);
 
 /**
- * CI / e2e diagnostic: when PIXEL_AGENTS_DEBUG_LOG is set, record the hook
+ * CI / e2e diagnostic: when CLAUDE_OFFICE_DEBUG_LOG is set, record the hook
  * script's outcome at every exit point. The hook delivery chain (spawn
- * claude-hook.js -> read the registry -> POST to every live server) is
+ * claude-office-hook.js -> read the registry -> POST to every live server) is
  * otherwise 100% silent: every failure path resolves quietly, so a dropped
  * hook is invisible in CI. Logging here lets a failing run show exactly
  * where delivery dies (bad-stdin, no-server-json, per-server POST
@@ -29,7 +29,7 @@ const SERVERS_REGISTRY_DIR = path.join(os.homedir(), SERVER_JSON_DIR, SERVERS_DI
 // inheritEnv:false, etc.). After reading the registry we fall back to a
 // live server's `debugLog` field, which the server populated from the same
 // env var.
-let debugLogPath = process.env['PIXEL_AGENTS_DEBUG_LOG'];
+let debugLogPath = process.env['CLAUDE_OFFICE_DEBUG_LOG'];
 function hookDebug(line: string): void {
   if (!debugLogPath) return;
   try {
@@ -51,7 +51,7 @@ function isProcessAlive(pid: number): boolean {
 }
 
 /**
- * Enumerate every live registry entry under ~/.pixel-agents/servers/, so the
+ * Enumerate every live registry entry under ~/.claude-office/servers/, so the
  * event can fan out to each running server (several CLI instances at once,
  * e.g. one per project). Entries whose owning
  * PID is no longer alive are skipped (the owning server prunes its own stale

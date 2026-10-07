@@ -63,7 +63,7 @@ export function applyConsentChoice(
       // Backstop, not a handler: every effect surfaces its own failure and resolves, so nothing should reach this
       // catch. It exists because the returned promise is fire-and-forget — an escaping rejection would surface only
       // as an unhandled-rejection crash log, and one broken effect must not block every later answer in the queue.
-      console.error('[Pixel Agents] Consent action failed:', err);
+      console.error('[Claude Office] Consent action failed:', err);
     }),
   );
   consentQueue = next;
@@ -112,12 +112,12 @@ async function runConsentChoice(
         if (!(await effects.areHooksInstalled().catch(() => true))) {
           clearHooksConsent(providerId);
         }
-        console.log('[Pixel Agents] Hook install undone — you will be asked again next time.');
+        console.log('[Claude Office] Hook install undone — you will be asked again next time.');
       } else {
         // Nothing on disk: the grant is all that answer left (an Install recorded, then failed to write). Nothing to
         // uninstall and no settings-file read to go wrong, so clearing our own config.json is unconditional.
         clearHooksConsent(providerId);
-        console.log('[Pixel Agents] Hook approval withdrawn — you will be asked again next time.');
+        console.log('[Claude Office] Hook approval withdrawn — you will be asked again next time.');
       }
       await effects.reportHooksStatus();
       break;
@@ -136,7 +136,7 @@ async function runConsentChoice(
         }
       }
       clearHooksAnswer(providerId);
-      console.log('[Pixel Agents] Hook decline withdrawn — you will be asked again next time.');
+      console.log('[Claude Office] Hook decline withdrawn — you will be asked again next time.');
       await effects.reportHooksStatus();
       break;
     }
@@ -147,7 +147,7 @@ async function runConsentChoice(
       // covers consent + preference; the effect only mirrors it into live runtime state.
       recordHooksDecline(providerId);
       effects.syncHooksPreferenceOff();
-      console.log('[Pixel Agents] Hooks disabled. Re-enable them any time in the UI settings.');
+      console.log('[Claude Office] Hooks disabled. Re-enable them any time in the UI settings.');
       await effects.reportHooksStatus();
       break;
 
@@ -155,7 +155,7 @@ async function runConsentChoice(
       // Writes nothing; the ask fires again on the next webviewReady. Reached by a first "Not Now" (nothing to undo)
       // and by every junk value, which is why the line claims no more than that nothing was installed.
       console.log(
-        '[Pixel Agents] Skipping hook install for this run — you will be asked again next time.',
+        '[Claude Office] Skipping hook install for this run — you will be asked again next time.',
       );
       break;
   }

@@ -3,7 +3,7 @@ import * as os from 'os';
 import * as path from 'path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-// Use isolated temp HOME to avoid touching real ~/.pixel-agents/
+// Use isolated temp HOME to avoid touching real ~/.claude-office/
 let tmpBase: string;
 let serverJsonDir: string;
 let serverJsonPath: string;
@@ -24,7 +24,7 @@ vi.mock('os', async () => {
 });
 
 // Must import AFTER mock setup
-const { PixelAgentsServer } = await import('../src/server.js');
+const { ClaudeOfficeServer } = await import('../src/server.js');
 
 async function postHook(
   port: number,
@@ -42,16 +42,16 @@ async function postHook(
   });
 }
 
-describe('PixelAgentsServer', () => {
-  let server: InstanceType<typeof PixelAgentsServer>;
+describe('ClaudeOfficeServer', () => {
+  let server: InstanceType<typeof ClaudeOfficeServer>;
 
   beforeEach(() => {
     tmpBase = fs.mkdtempSync(path.join(os.tmpdir(), 'pxl-server-test-'));
-    serverJsonDir = path.join(tmpBase, '.pixel-agents');
+    serverJsonDir = path.join(tmpBase, '.claude-office');
     serverJsonPath = path.join(serverJsonDir, 'server.json');
     registryDir = path.join(serverJsonDir, 'servers');
     fs.mkdirSync(serverJsonDir, { recursive: true });
-    server = new PixelAgentsServer();
+    server = new ClaudeOfficeServer();
   });
 
   afterEach(() => {
@@ -175,7 +175,7 @@ describe('PixelAgentsServer', () => {
   // 11. A second instance reuses the existing live server instead of starting its own
   it('second instance reuses an existing server', async () => {
     const config1 = await server.start();
-    const server2 = new PixelAgentsServer();
+    const server2 = new ClaudeOfficeServer();
     const config2 = await server2.start();
     expect(config2.port).toBe(config1.port);
     expect(config2.pid).toBe(config1.pid);
@@ -248,7 +248,7 @@ describe('PixelAgentsServer', () => {
       JSON.stringify({ port: 9999, pid: 999999, token: 'fake', startedAt: 0 }),
     );
     // Server never started (it would reuse), just stop
-    const server2 = new PixelAgentsServer();
+    const server2 = new ClaudeOfficeServer();
     server2.stop();
     expect(fs.existsSync(serverJsonPath)).toBe(true);
   });

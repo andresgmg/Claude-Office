@@ -5,13 +5,13 @@ import * as os from 'os';
 import * as path from 'path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-const HOOK_SCRIPT = path.join(__dirname, '../../dist/hooks/claude-hook.js');
+const HOOK_SCRIPT = path.join(__dirname, '../../dist/hooks/claude-office-hook.js');
 
 // Isolated temp HOME
 let tmpBase: string;
 
 function writeServerJson(port: number, token: string): void {
-  const dir = path.join(tmpBase, '.pixel-agents');
+  const dir = path.join(tmpBase, '.claude-office');
   fs.mkdirSync(dir, { recursive: true });
   fs.writeFileSync(
     path.join(dir, 'server.json'),
@@ -19,9 +19,9 @@ function writeServerJson(port: number, token: string): void {
   );
 }
 
-/** Write one multi-server registry entry (~/.pixel-agents/servers/<pid>-<port>.json). */
+/** Write one multi-server registry entry (~/.claude-office/servers/<pid>-<port>.json). */
 function writeRegistryEntry(pid: number, port: number, token: string): void {
-  const dir = path.join(tmpBase, '.pixel-agents', 'servers');
+  const dir = path.join(tmpBase, '.claude-office', 'servers');
   fs.mkdirSync(dir, { recursive: true });
   fs.writeFileSync(
     path.join(dir, `${pid}-${port}.json`),
@@ -77,7 +77,7 @@ function runHookScript(
   });
 }
 
-describe('claude-hook.js integration', () => {
+describe('claude-office-hook.js integration', () => {
   beforeEach(() => {
     tmpBase = fs.mkdtempSync(path.join(os.tmpdir(), 'pxl-hook-int-'));
   });
@@ -195,7 +195,7 @@ describe('claude-hook.js integration', () => {
 
     const { code } = await runHookScript(
       JSON.stringify({ session_id: 'skip-dead', hook_event_name: 'Stop' }),
-      { PIXEL_AGENTS_DEBUG_LOG: debugLog },
+      { CLAUDE_OFFICE_DEBUG_LOG: debugLog },
     );
 
     live.close();
@@ -219,7 +219,7 @@ describe('claude-hook.js integration', () => {
 
     const { code } = await runHookScript(
       JSON.stringify({ session_id: 'malformed-live', hook_event_name: 'Stop' }),
-      { PIXEL_AGENTS_DEBUG_LOG: debugLog },
+      { CLAUDE_OFFICE_DEBUG_LOG: debugLog },
     );
 
     healthy.close();
@@ -235,7 +235,7 @@ describe('claude-hook.js integration', () => {
 
   // 10. Registry present but empty falls back to the legacy server.json
   itBuilt('falls back to legacy server.json when the registry directory is empty', async () => {
-    fs.mkdirSync(path.join(tmpBase, '.pixel-agents', 'servers'), { recursive: true });
+    fs.mkdirSync(path.join(tmpBase, '.claude-office', 'servers'), { recursive: true });
     const legacy = await startRecordingServer();
     writeServerJson(legacy.port, 'legacy-token');
 

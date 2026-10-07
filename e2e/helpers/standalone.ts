@@ -136,7 +136,7 @@ async function stopProcess(child: ChildProcessWithoutNullStreams): Promise<void>
 /**
  * Install a WebSocket recorder BEFORE page navigation. Proxies window.WebSocket
  * so every incoming message frame is JSON-parsed and pushed to
- * window.__pixelAgentsMessages, which drainMessages() reads from.
+ * window.__claudeOfficeMessages, which drainMessages() reads from.
  */
 async function installMessageRecorder(page: Page): Promise<void> {
   await page.addInitScript(() => {
@@ -159,14 +159,15 @@ async function installMessageRecorder(page: Page): Promise<void> {
       },
     });
     window.WebSocket = RecordingWebSocket as typeof WebSocket;
-    (window as Window & { __pixelAgentsMessages?: unknown[] }).__pixelAgentsMessages =
+    (window as Window & { __claudeOfficeMessages?: unknown[] }).__claudeOfficeMessages =
       recordedMessages;
   });
 }
 
 async function drainRecordedMessages(page: Page): Promise<RecordedServerMessage[]> {
   return await page.evaluate(() => {
-    const store = (window as Window & { __pixelAgentsMessages?: unknown[] }).__pixelAgentsMessages;
+    const store = (window as Window & { __claudeOfficeMessages?: unknown[] })
+      .__claudeOfficeMessages;
     if (!Array.isArray(store)) {
       return [];
     }
@@ -179,7 +180,7 @@ async function drainRecordedMessages(page: Page): Promise<RecordedServerMessage[
 /** The trailing `\s` is load-bearing: stdout arrives in chunks, and without a
  *  terminator a half-delivered line would match and yield a truncated URL that
  *  still parses (`http://127.0.0.1:501`). */
-const PRINTED_URL_PATTERN = /Pixel Agents server running at (\S+)\s/;
+const PRINTED_URL_PATTERN = /Claude Office server running at (\S+)\s/;
 
 /**
  * Wait for the URL line the CLI prints on its own stdout, and hand back exactly
@@ -189,7 +190,7 @@ const PRINTED_URL_PATTERN = /Pixel Agents server running at (\S+)\s/;
  * obtains the server token — the token is what makes the session privileged
  * enough to approve a hook install (the SPA forwards it on the /ws handshake,
  * server/src/httpServer.ts standaloneTokenValid). Reading the token out of
- * `~/.pixel-agents/server.json` and synthesizing an equivalent URL, which this
+ * `~/.claude-office/server.json` and synthesizing an equivalent URL, which this
  * fixture used to do, is the fixture handing ITSELF a capability no browser can
  * reach: the whole standalone suite then stays green over a CLI that prints a
  * bare, wrong-tokened, or unbrowsable URL, and every real user lands in a
@@ -222,7 +223,7 @@ export async function launchStandalone(
   // Consent baseline: without it the CLI asks over the tokened /ws handshake
   // and the in-app dialog covers the office in every spec.
   if (options.seedHooksConsent ?? true) {
-    const configPath = path.join(tmpHome, '.pixel-agents', 'config.json');
+    const configPath = path.join(tmpHome, '.claude-office', 'config.json');
     fs.mkdirSync(path.dirname(configPath), { recursive: true });
     fs.writeFileSync(configPath, JSON.stringify({ hooksConsent: { claude: 'granted' } }, null, 2));
   }
@@ -246,9 +247,9 @@ export async function launchStandalone(
   try {
     await page.setViewportSize({ width: 1280, height: 800 });
     // Mark this as the e2e harness before navigation so the standalone webview
-    // installs its test-only observability hooks (window.__pixelAgentsTestHooks).
+    // installs its test-only observability hooks (window.__claudeOfficeTestHooks).
     await page.addInitScript(() => {
-      (window as unknown as { __PIXEL_AGENTS_E2E?: boolean }).__PIXEL_AGENTS_E2E = true;
+      (window as unknown as { __CLAUDE_OFFICE_E2E?: boolean }).__CLAUDE_OFFICE_E2E = true;
     });
     await installMessageRecorder(page);
     await waitForHttpOk(`${hostUrl}/api/health`);

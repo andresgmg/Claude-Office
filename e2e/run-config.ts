@@ -1,6 +1,6 @@
 import path from 'path';
 
-const RAW_RUN_ID = process.env['PIXEL_AGENTS_E2E_RUN_ID']?.trim() ?? '';
+const RAW_RUN_ID = process.env['CLAUDE_OFFICE_E2E_RUN_ID']?.trim() ?? '';
 
 function sanitizePathSegment(value: string): string {
   return value.replace(/[^a-zA-Z0-9._-]+/g, '-');

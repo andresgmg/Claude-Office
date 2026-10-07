@@ -44,7 +44,7 @@ const STYLES = {
     color: '\u001b[35m', // magenta — matches the [external·tag] line prefix
     title: 'external sessions monitor',
     sub:
-      'streams narration from mock claude processes that Pixel Agents adopts\n' +
+      'streams narration from mock claude processes that Claude Office adopts\n' +
       '(external sessions have no terminal of their own)',
   },
   test: {

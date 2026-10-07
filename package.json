@@ -22,7 +22,7 @@
     "CHANGELOG.md",
     "LICENSE",
     "dist/cli.js",
-    "dist/hooks/claude-hook.js",
+    "dist/hooks/claude-office-hook.js",
     "dist/assets/",
     "dist/webview/"
   ],

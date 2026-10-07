@@ -53,7 +53,7 @@ export interface ClientMessageContext {
   /** Reload assets after an external-asset-directory change. Needs the dist root, known only to cli.ts. */
   onReloadAssets?: ReloadAssetsSideEffect;
   /**
-   * Whether this client may send messages that reach OUTSIDE `~/.pixel-agents/`
+   * Whether this client may send messages that reach OUTSIDE `~/.claude-office/`
    * — today only `setHooksEnabled`, which grants machine-wide consent to modify
    * `~/.claude/settings.json`. Decided per-connection by the transport
    * (httpServer's standaloneTokenValid); defaults to false so a caller that
@@ -63,13 +63,13 @@ export interface ClientMessageContext {
 }
 
 // ── Setting key constants (persisted through the state adapter) ──
-const KEY_SOUND_ENABLED = 'pixel-agents.soundEnabled';
-const KEY_LAST_SEEN_VERSION = 'pixel-agents.lastSeenVersion';
-const KEY_ALWAYS_SHOW_LABELS = 'pixel-agents.alwaysShowLabels';
-const KEY_GHOST_HEADLESS_AGENTS = 'pixel-agents.ghostHeadlessAgents';
-const KEY_WATCH_ALL_SESSIONS = 'pixel-agents.watchAllSessions';
-const KEY_HOOKS_INFO_SHOWN = 'pixel-agents.hooksInfoShown';
-const KEY_SHOW_AREAS = 'pixel-agents.showAreas';
+const KEY_SOUND_ENABLED = 'claude-office.soundEnabled';
+const KEY_LAST_SEEN_VERSION = 'claude-office.lastSeenVersion';
+const KEY_ALWAYS_SHOW_LABELS = 'claude-office.alwaysShowLabels';
+const KEY_GHOST_HEADLESS_AGENTS = 'claude-office.ghostHeadlessAgents';
+const KEY_WATCH_ALL_SESSIONS = 'claude-office.watchAllSessions';
+const KEY_HOOKS_INFO_SHOWN = 'claude-office.hooksInfoShown';
+const KEY_SHOW_AREAS = 'claude-office.showAreas';
 
 /**
  * Handle incoming ClientMessage from a WebSocket client.
@@ -192,7 +192,7 @@ export function handleClientMessage(
         // Answer with the truth so the checkbox still shows reality instead of
         // silently appearing to have worked.
         console.warn(
-          '[Pixel Agents] Ignoring setHooksEnabled from an untokened client — installing hooks needs approval from this machine (open the tokened URL the CLI printed).',
+          '[Claude Office] Ignoring setHooksEnabled from an untokened client — installing hooks needs approval from this machine (open the tokened URL the CLI printed).',
         );
         void provider
           .areHooksInstalled()
@@ -209,7 +209,7 @@ export function handleClientMessage(
       // reasoning as setHooksEnabled above.
       if (!ctx.privileged) {
         console.warn(
-          '[Pixel Agents] Ignoring hooksConsentResponse from an untokened client — installing hooks needs approval from this machine (open the tokened URL the CLI printed).',
+          '[Claude Office] Ignoring hooksConsentResponse from an untokened client — installing hooks needs approval from this machine (open the tokened URL the CLI printed).',
         );
         break;
       }
@@ -305,7 +305,7 @@ async function applyHooksPreference(
     // not outcome (the installer refuses to touch an unparseable file).
     send({ type: 'hooksStatus', providerId: provider.id, installed });
   } catch (err) {
-    console.error('[Pixel Agents] Applying the hooks preference failed:', err);
+    console.error('[Claude Office] Applying the hooks preference failed:', err);
   }
 }
 
@@ -328,7 +328,7 @@ function standaloneConsentEffects(
       try {
         await ctx.onSetHooksEnabled?.(provider.id, false);
       } catch (err) {
-        console.error('[Pixel Agents] Hook uninstall failed:', err);
+        console.error('[Claude Office] Hook uninstall failed:', err);
       }
     },
     areHooksInstalled: () => provider.areHooksInstalled(),
@@ -413,7 +413,7 @@ function handleWebviewReady(send: WsSend, ctx: ClientMessageContext): void {
     type: 'settingsLoaded',
     soundEnabled: adapter?.getSetting(KEY_SOUND_ENABLED, true) ?? true,
     lastSeenVersion: adapter?.getSetting(KEY_LAST_SEEN_VERSION, '') ?? '',
-    extensionVersion: process.env.PIXEL_AGENTS_VERSION ?? '',
+    extensionVersion: process.env.CLAUDE_OFFICE_VERSION ?? '',
     watchAllSessions,
     alwaysShowLabels: adapter?.getSetting(KEY_ALWAYS_SHOW_LABELS, false) ?? false,
     ghostHeadlessAgents: adapter?.getSetting(KEY_GHOST_HEADLESS_AGENTS, false) ?? false,
@@ -437,7 +437,10 @@ function handleWebviewReady(send: WsSend, ctx: ClientMessageContext): void {
     void provider
       .areHooksInstalled()
       .catch((err: unknown) => {
-        console.error(`[Pixel Agents] hooks status check failed for provider ${provider.id}:`, err);
+        console.error(
+          `[Claude Office] hooks status check failed for provider ${provider.id}:`,
+          err,
+        );
         return false;
       })
       .then((installed) => {

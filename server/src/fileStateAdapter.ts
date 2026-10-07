@@ -2,10 +2,10 @@
  * FileStateAdapter: file-backed StateAdapter implementation.
  *
  * Settings (per adapter namespace) persist to
- *   ~/.pixel-agents/config.json  under the "standalone" key.
+ *   ~/.claude-office/config.json  under the "standalone" key.
  *
  * Agents + seats (per adapter) persist to
- *   ~/.pixel-agents/<namespace>-state.json
+ *   ~/.claude-office/<namespace>-state.json
  *
  * Runtime visibility (which agents show in the office) is scope-controlled by the
  * runtime scanner + Watch All Sessions toggle, not by persistence. Both adapters
@@ -25,9 +25,9 @@ import { LAYOUT_FILE_DIR } from './constants.js';
 
 const ADAPTER_SETTING_KEY_SET: ReadonlySet<string> = new Set(ADAPTER_SETTING_KEYS);
 
-/** Strip leading "pixel-agents." prefix to match AdapterSettings field names. */
+/** Strip leading "claude-office." prefix to match AdapterSettings field names. */
 function settingNameOf(key: string): AdapterSettingKey | null {
-  const bare = key.startsWith('pixel-agents.') ? key.slice('pixel-agents.'.length) : key;
+  const bare = key.startsWith('claude-office.') ? key.slice('claude-office.'.length) : key;
   return ADAPTER_SETTING_KEY_SET.has(bare) ? (bare as AdapterSettingKey) : null;
 }
 
@@ -112,7 +112,7 @@ export class FileStateAdapter implements StateAdapter {
             : {},
       };
     } catch (err) {
-      console.error('[Pixel Agents] Failed to read adapter state:', err);
+      console.error('[Claude Office] Failed to read adapter state:', err);
       return { ...EMPTY_STATE };
     }
   }
@@ -128,7 +128,7 @@ export class FileStateAdapter implements StateAdapter {
       fs.writeFileSync(tmpPath, json, 'utf-8');
       fs.renameSync(tmpPath, this.stateFilePath);
     } catch (err) {
-      console.error('[Pixel Agents] Failed to write adapter state:', err);
+      console.error('[Claude Office] Failed to write adapter state:', err);
     }
   }
 }

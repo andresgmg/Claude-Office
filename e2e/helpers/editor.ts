@@ -1,6 +1,6 @@
 /**
- * Typed view of `window.__pixelAgentsTestHooks`, the observability surface the
- * SPA installs when a page is flagged as the e2e harness (`__PIXEL_AGENTS_E2E`,
+ * Typed view of `window.__claudeOfficeTestHooks`, the observability surface the
+ * SPA installs when a page is flagged as the e2e harness (`__CLAUDE_OFFICE_E2E`,
  * set by e2e/helpers/standalone.ts before navigation; the installer lives in
  * webview-ui/src/testHooks.ts). Layout-editor state — areas, area tiles,
  * carpet tiles, seats — renders only on the canvas, so specs read it through
@@ -11,7 +11,7 @@
  * self-contained.
  */
 export interface TestHooksWindow extends Window {
-  __pixelAgentsTestHooks?: {
+  __claudeOfficeTestHooks?: {
     getCarpetTiles?: () => Array<{
       col: number;
       row: number;

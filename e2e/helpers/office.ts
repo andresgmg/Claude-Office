@@ -7,7 +7,7 @@ const OVERLAY_TIMEOUT_MS = 15_000;
  * Agent-overlay and character helpers for the SPA page the standalone fixture
  * opens. Overlays are DOM (`[data-testid="agent-overlay"]`) and are queried
  * with Playwright locators. Characters, seats and renderer settings exist only
- * on the canvas, so those helpers read `window.__pixelAgentsTestHooks` from
+ * on the canvas, so those helpers read `window.__claudeOfficeTestHooks` from
  * inside `page.evaluate` — the observability surface webview-ui/src/testHooks.ts
  * installs when the page is flagged as the e2e harness.
  *
@@ -171,7 +171,7 @@ export async function expectSingleAgentOverlay(page: Page): Promise<number> {
 
 /**
  * Assert whether the office's single character is drawn as a ghost — the
- * translucent rendering a headless agent (one Pixel Agents adopted rather than
+ * translucent rendering a headless agent (one Claude Office adopted rather than
  * launched) gets while "Display Headless as Ghosts" is on.
  *
  * Both inputs to that decision are canvas-only: the per-character flag and the
@@ -187,7 +187,8 @@ export async function expectCharacterGhosted(page: Page, ghosted: boolean): Prom
             getCharacters?: () => Array<{ id: number; isHeadless?: boolean }>;
             getGhostHeadlessAgents?: () => boolean;
           }
-          const hooks = (window as { __pixelAgentsTestHooks?: GhostHooks }).__pixelAgentsTestHooks;
+          const hooks = (window as { __claudeOfficeTestHooks?: GhostHooks })
+            .__claudeOfficeTestHooks;
           const characters = hooks?.getCharacters?.() ?? [];
           if (characters.length !== 1) return `expected 1 character, got ${characters.length}`;
           const setting = hooks?.getGhostHeadlessAgents?.() ?? false;
@@ -218,7 +219,7 @@ export async function expectTeammateSeatedNextToLead(
       getAgentSeats?: () => Array<{ id: number; seatId: string | null }>;
       getSeats?: () => Array<{ uid: string; col: number; row: number; assigned: boolean }>;
     }
-    const hooks = (window as { __pixelAgentsTestHooks?: SeatHooks }).__pixelAgentsTestHooks;
+    const hooks = (window as { __claudeOfficeTestHooks?: SeatHooks }).__claudeOfficeTestHooks;
     const characters = hooks?.getCharacters?.() ?? [];
     const agentSeats = hooks?.getAgentSeats?.() ?? [];
     const seats = hooks?.getSeats?.() ?? [];
@@ -252,7 +253,7 @@ export async function selectCharacter(page: Page, agentId: number): Promise<void
     interface SelectionHooks {
       selectAgent?: (id: number) => void;
     }
-    (window as { __pixelAgentsTestHooks?: SelectionHooks }).__pixelAgentsTestHooks?.selectAgent?.(
+    (window as { __claudeOfficeTestHooks?: SelectionHooks }).__claudeOfficeTestHooks?.selectAgent?.(
       id,
     );
   }, agentId);

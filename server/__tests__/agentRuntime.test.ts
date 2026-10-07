@@ -10,7 +10,7 @@ import { claudeProvider } from '../src/providers/hook/claude/claude.js';
 /**
  * D5 gate (tier-3 multi-server hook fan-out plan): the hook script now
  * broadcasts every event to every live server (server/src/providers/hook/
- * claude/hooks/claude-hook.ts), so a server must never adopt a session it
+ * claude/hooks/claude-office-hook.ts), so a server must never adopt a session it
  * doesn't own just because it received the event. HookEventHandler's own
  * isTrackedSession only gates debug logging (hookEventHandler.ts:173-174);
  * the actual gate is one hop downstream, in AgentRuntime's

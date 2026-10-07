@@ -7,7 +7,6 @@ import { HOOK_SCRIPTS_DIR } from '../../../constants.js';
 import {
   CLAUDE_HOOK_EVENTS,
   CLAUDE_HOOK_SCRIPT_NAME,
-  LEGACY_HOOK_SCRIPT_NAME,
   SETTINGS_BACKUP_SUFFIX,
   SETTINGS_FRESH_FILE_MODE,
   SETTINGS_MUTATE_ATTEMPTS,
@@ -36,7 +35,7 @@ function getClaudeSettingsPath(): string {
   return path.join(os.homedir(), '.claude', 'settings.json');
 }
 
-/** Returns the destination path for the hook script (~/.pixel-agents/hooks/claude-hook.js). */
+/** Returns the destination path for the hook script (~/.claude-office/hooks/claude-office-hook.js). */
 function getHookScriptPath(): string {
   return path.join(os.homedir(), HOOK_SCRIPTS_DIR, CLAUDE_HOOK_SCRIPT_NAME);
 }
@@ -156,7 +155,7 @@ async function mutateClaudeSettings(
   throw lastError ?? new Error(SETTINGS_UNPARSEABLE_MESSAGE);
 }
 
-/** One-time safety net: before Pixel Agents' first-ever modification of
+/** One-time safety net: before Claude Office' first-ever modification of
  *  settings.json, copy it aside. Never overwritten after that, so even a future
  *  installer bug leaves the user a recoverable copy of their pre-Pixel-Agents
  *  file.
@@ -182,7 +181,7 @@ function backupClaudeSettingsOnce(settingsPath: string): void {
   const backupPath = settingsPath + SETTINGS_BACKUP_SUFFIX;
   try {
     fs.copyFileSync(settingsPath, backupPath, fs.constants.COPYFILE_EXCL);
-    console.log(`[Pixel Agents] Backed up Claude settings to ${backupPath}`);
+    console.log(`[Claude Office] Backed up Claude settings to ${backupPath}`);
   } catch (e) {
     if ((e as NodeJS.ErrnoException).code !== 'EEXIST') throw e;
     if (!isRegularFile(backupPath)) {
@@ -289,12 +288,9 @@ function removeIfPresent(filePath: string): void {
   }
 }
 
-/** Legacy script name (before rename to claude-hook.js), as a path suffix. */
-const LEGACY_HOOK_PATH_SUFFIX = `/${LEGACY_HOOK_SCRIPT_NAME}`;
-
-/** The path suffix we own: `/.pixel-agents/hooks/claude-hook.js`. The leading
- *  separator is load-bearing — without it `/opt/evil.pixel-agents/hooks/...`
- *  and `my-pixel-agents-hook.js` match by substring. */
+/** The path suffix we own: `/.claude-office/hooks/claude-office-hook.js`. The leading
+ *  separator is load-bearing — without it `/opt/evil.claude-office/hooks/...`
+ *  and `my-claude-office-hook.js` match by substring. */
 const HOOK_PATH_SUFFIX = `/${HOOK_SCRIPTS_DIR}/${CLAUDE_HOOK_SCRIPT_NAME}`;
 
 /** Characters that end a path token in a shell command line. A path we own is
@@ -306,15 +302,14 @@ const PATH_TERMINATORS = new Set([' ', '\t', '"', "'", ';', '&', '|', '>', '<', 
 /**
  * Check if a single hook command is ours.
  *
- * Neither half of the path is identity on its own: `claude-hook.js` is a
+ * Neither half of the path is identity on its own: `claude-office-hook.js` is a
  * generic name another Claude tool could plausibly use, and substring tests
  * claim unrelated commands. Empirically, plain `includes` classified all of
  * these as ours — and `uninstallHooks` then DELETED them:
- *   node /opt/.pixel-agents/hooks/claude-hook.js.backup   (a different file)
- *   true # /opt/.pixel-agents/hooks/claude-hook.js        (a comment)
- *   wrapper --note=".pixel-agents/hooks/claude-hook.js" x (an argument)
- *   node /opt/evil.pixel-agents/hooks/claude-hook.js      (no token boundary)
- *   node /opt/my-pixel-agents-hook.js.bak                 (legacy, no boundary)
+ *   node /opt/.claude-office/hooks/claude-office-hook.js.backup   (a different file)
+ *   true # /opt/.claude-office/hooks/claude-office-hook.js        (a comment)
+ *   wrapper --note=".claude-office/hooks/claude-office-hook.js" x (an argument)
+ *   node /opt/evil.claude-office/hooks/claude-office-hook.js      (no token boundary)
  * Deleting a third-party hook is the same "we destroyed the user's config"
  * class of bug this whole module exists to fix, so identity is anchored at
  * BOTH ends: our path suffix must start at a path separator and must END the
@@ -323,14 +318,14 @@ const PATH_TERMINATORS = new Set([' ', '\t', '"', "'", ';', '&', '|', '>', '<', 
  * Deliberate scope choices:
  * - Casing is NOT significant: the token is normalized to lower case before the
  *   suffix compare. macOS and Windows — the two GUI platforms this ships on —
- *   have case-insensitive volumes, where `/home/x/.Pixel-Agents/Hooks/Claude-Hook.js`
+ *   have case-insensitive volumes, where `/home/x/.Claude-Office/Hooks/Claude-Office-Hook.js`
  *   is the SAME INODE as our script and is genuinely firing. Reading it as
  *   foreign is what shipped: reinstall appended a duplicate (both fired), and
  *   uninstall left the cased entry behind as an orphan our own uninstall could
  *   no longer see — a running hook the user has no route to remove. The folding
  *   is UNCONDITIONAL (we do not probe the filesystem's case sensitivity), so the
  *   accepted residual is a Linux-only false positive that is NOT harmless: on a
- *   case-sensitive volume `~/.Pixel-Agents/hooks/claude-hook.js` is a genuinely
+ *   case-sensitive volume `~/.Claude-Office/hooks/claude-office-hook.js` is a genuinely
  *   DIFFERENT file, we classify it as ours, and uninstall DELETES it — the same
  *   class of loss this module exists to prevent, traded knowingly against a
  *   guaranteed unremovable live hook on the two platforms that actually ship
@@ -341,7 +336,7 @@ const PATH_TERMINATORS = new Set([' ', '\t', '"', "'", ';', '&', '|', '>', '<', 
  * - The FIRST token only. A command is `node <script>` or `<script>`; our path
  *   appearing later is an argument or a comment, not the thing being run.
  * - ABSOLUTE paths only. We always write one, and a RELATIVE
- *   `.pixel-agents/hooks/claude-hook.js` resolves against whatever directory
+ *   `.claude-office/hooks/claude-office-hook.js` resolves against whatever directory
  *   Claude Code happens to run in — so it names a project-local file that is
  *   almost certainly not ours, and deleting it would be the same mistake as
  *   deleting a lookalike.
@@ -359,7 +354,7 @@ function isOurHookCommand(command: string): boolean {
   // Both suffix constants are lower-case, so folding the token is the whole
   // normalization.
   const normalized = token.toLowerCase();
-  return normalized.endsWith(HOOK_PATH_SUFFIX) || normalized.endsWith(LEGACY_HOOK_PATH_SUFFIX);
+  return normalized.endsWith(HOOK_PATH_SUFFIX);
 }
 
 /**
@@ -491,7 +486,7 @@ function settingsHoldOnlyOurHooks(settings: ClaudeSettings): boolean {
  *  A unique symbol, never `null`: `null` is a value a user's settings.json can
  *  legitimately contain inside a hooks array, and using it as the sentinel made
  *  us DELETE it. Observed: `{"hooks":{"Stop":[null,"third-party-junk"]}}` — a
- *  file with no Pixel Agents command anywhere — came back rewritten as
+ *  file with no Claude Office command anywhere — came back rewritten as
  *  `{"hooks":{"Stop":["third-party-junk"]}}` and logged "Hooks removed". A
  *  sentinel that can collide with user data is a sentinel that eats user data;
  *  a symbol cannot appear in parsed JSON. */
@@ -547,7 +542,7 @@ function makeHookEntry(): ClaudeHookEntry {
 }
 
 /**
- * Whether ANY Pixel Agents hook command is present in ~/.claude/settings.json.
+ * Whether ANY Claude Office hook command is present in ~/.claude/settings.json.
  *
  * "Any", not "all 12", and the difference is the whole point. Every caller asks
  * this question for one of two reasons — "are our hooks firing right now?"
@@ -586,9 +581,9 @@ export function areHooksInstalled(): boolean {
 }
 
 /**
- * Install Pixel Agents hook entries into ~/.claude/settings.json for
+ * Install Claude Office hook entries into ~/.claude/settings.json for
  * Notification, Stop, and PermissionRequest events. Idempotent: removes
- * any existing Pixel Agents entries before adding fresh ones.
+ * any existing Claude Office entries before adding fresh ones.
  *
  * Rejects (before any write) when settings.json exists but cannot be parsed or
  * keeps changing concurrently — callers surface the error to the user instead
@@ -604,7 +599,7 @@ export async function installHooks(): Promise<void> {
     });
   }
   if (wrote) {
-    console.log('[Pixel Agents] Hooks installed in ~/.claude/settings.json');
+    console.log('[Claude Office] Hooks installed in ~/.claude/settings.json');
   }
 }
 
@@ -665,7 +660,7 @@ function installEntries(): Promise<boolean> {
         throw new Error(settingsNonArrayEventMessage(event));
       }
       const entries = hooks[event];
-      // Remove any existing Pixel Agents commands (in case the script path changed)
+      // Remove any existing Claude Office commands (in case the script path changed)
       const filtered = (withoutOurEntries(entries) ?? entries).concat(makeHookEntry());
       if (JSON.stringify(filtered) !== JSON.stringify(entries)) {
         hooks[event] = filtered;
@@ -676,7 +671,7 @@ function installEntries(): Promise<boolean> {
   });
 }
 
-/** Remove all Pixel Agents hook entries from ~/.claude/settings.json. Cleans up empty objects.
+/** Remove all Claude Office hook entries from ~/.claude/settings.json. Cleans up empty objects.
  *  Rejects (before any write) when the file cannot be parsed — same protection
  *  as install: never rewrite a file we could not read. Callers surface the
  *  error; claiming success after an aborted uninstall is how a "removed"
@@ -717,11 +712,11 @@ export async function uninstallHooks(): Promise<void> {
     });
   }
   if (wrote) {
-    console.log('[Pixel Agents] Hooks removed from ~/.claude/settings.json');
+    console.log('[Claude Office] Hooks removed from ~/.claude/settings.json');
   }
 }
 
-/** Copy the shipped hook script from the extension to ~/.pixel-agents/hooks/.
+/** Copy the shipped hook script from the extension to ~/.claude-office/hooks/.
  *  Returns true if the script was copied, false if the source was missing or the
  *  copy failed, so callers can report the failure instead of logging a false
  *  success (issue #333: a path regression silently installed nothing). */
@@ -735,15 +730,15 @@ export function copyHookScript(extensionPath: string): boolean {
       fs.mkdirSync(dstDir, { recursive: true, mode: 0o700 });
     }
     if (!fs.existsSync(src)) {
-      console.warn(`[Pixel Agents] Hook script not found at ${src}`);
+      console.warn(`[Claude Office] Hook script not found at ${src}`);
       return false;
     }
     fs.copyFileSync(src, dst);
     fs.chmodSync(dst, 0o700);
-    console.log(`[Pixel Agents] Hook script installed at ${dst}`);
+    console.log(`[Claude Office] Hook script installed at ${dst}`);
     return true;
   } catch (e) {
-    console.error(`[Pixel Agents] Failed to copy hook script: ${e}`);
+    console.error(`[Claude Office] Failed to copy hook script: ${e}`);
     return false;
   }
 }

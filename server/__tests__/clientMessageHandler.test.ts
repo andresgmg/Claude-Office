@@ -126,10 +126,10 @@ describe('clientMessageHandler: areas + carpet wire ordering', () => {
       handleClientMessage({ type: 'setShowAreas', enabled: true }, (m) => sent.push(m), ctx);
 
       const adapter = store.getAdapter()!;
-      expect(adapter.getSetting('pixel-agents.showAreas', false)).toBe(true);
+      expect(adapter.getSetting('claude-office.showAreas', false)).toBe(true);
 
       handleClientMessage({ type: 'setShowAreas', enabled: false }, (m) => sent.push(m), ctx);
-      expect(adapter.getSetting('pixel-agents.showAreas', true)).toBe(false);
+      expect(adapter.getSetting('claude-office.showAreas', true)).toBe(false);
     });
   });
 
@@ -171,7 +171,7 @@ describe('clientMessageHandler: areas + carpet wire ordering', () => {
   describe('setHooksEnabled persistence', () => {
     /** Put our command on every installed event, as a real install would. */
     function seedInstalledHooks(): void {
-      const command = `node "${path.join(tempHome, '.pixel-agents', 'hooks', 'claude-hook.js')}"`;
+      const command = `node "${path.join(tempHome, '.claude-office', 'hooks', 'claude-office-hook.js')}"`;
       const entry = { matcher: '', hooks: [{ type: 'command', command, timeout: 5 }] };
       fs.mkdirSync(path.join(tempHome, '.claude'), { recursive: true });
       fs.writeFileSync(
@@ -357,7 +357,7 @@ describe('clientMessageHandler: areas + carpet wire ordering', () => {
     it('emits carpetTilesLoaded after wallTilesLoaded when both are present in the cache', () => {
       // Hex placeholders are test fixtures, not UI tokens — disable the
       // centralized-color rule just for this cache literal.
-      /* eslint-disable pixel-agents/no-inline-colors */
+      /* eslint-disable claude-office/no-inline-colors */
       const cache: AssetCache = {
         characters: null,
         pets: null,
@@ -367,7 +367,7 @@ describe('clientMessageHandler: areas + carpet wire ordering', () => {
         furniture: null,
         defaultLayout: null,
       };
-      /* eslint-enable pixel-agents/no-inline-colors */
+      /* eslint-enable claude-office/no-inline-colors */
       ctx = freshCtx(cache);
 
       handleClientMessage({ type: 'webviewReady' }, (m) => sent.push(m), ctx);

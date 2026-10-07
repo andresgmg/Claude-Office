@@ -198,7 +198,7 @@ function App() {
   // geometry — the handlers still own undo/dirty/rebuild. Guarded on isE2E.
   useEffect(() => {
     if (!isE2E || typeof window === 'undefined') return;
-    const hooks = (window.__pixelAgentsTestHooks ??= {});
+    const hooks = (window.__claudeOfficeTestHooks ??= {});
     hooks.editorTileAction = (col, row) => editor.handleEditorTileAction(col, row);
     hooks.editorEraseAction = (col, row) => editor.handleEditorEraseAction(col, row);
     hooks.getShowAreas = () => effectiveShowAreas;
@@ -463,14 +463,14 @@ function App() {
         zIndex={52}
       >
         <div className="text-base text-text px-10" style={{ lineHeight: 1.4 }}>
-          <p className="mb-8">Your Pixel Agents office now reacts in real-time:</p>
+          <p className="mb-8">Your Claude Office office now reacts in real-time:</p>
           <ul className="mb-8 pl-18 list-disc m-0">
             <li className="text-sm mb-2">Permission prompts appear instantly</li>
             <li className="text-sm mb-2">Turn completions detected the moment they happen</li>
             <li className="text-sm mb-2">Sound notifications play immediately</li>
           </ul>
           <p className="mb-12 text-text-muted">
-            This works through Claude Code Hooks, small event listeners that notify Pixel Agents
+            This works through Claude Code Hooks, small event listeners that notify Claude Office
             whenever something happens in your Claude sessions.
           </p>
           <div className="text-center">

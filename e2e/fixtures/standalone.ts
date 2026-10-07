@@ -71,7 +71,7 @@ export const test = base.extend<{
       await attachTextFileIfExists(
         testInfo,
         'server-json',
-        path.join(standalone.tmpHome, '.pixel-agents', 'server.json'),
+        path.join(standalone.tmpHome, '.claude-office', 'server.json'),
         'application/json',
       );
 

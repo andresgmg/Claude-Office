@@ -6,12 +6,8 @@
  * Adding another provider? Create its own `providers/<kind>/<name>/constants.ts`.
  */
 
-/** Output filename after esbuild compiles claude-hook.ts to CJS (source is .ts, output is .js) */
-export const CLAUDE_HOOK_SCRIPT_NAME = 'claude-hook.js';
-
-/** The script name we shipped before the rename to claude-hook.js. Still
- *  recognized as ours so a very old install can be migrated or removed. */
-export const LEGACY_HOOK_SCRIPT_NAME = 'pixel-agents-hook.js';
+/** Output filename after esbuild compiles claude-office-hook.ts to CJS (source is .ts, output is .js) */
+export const CLAUDE_HOOK_SCRIPT_NAME = 'claude-office-hook.js';
 
 /** Hook events to install in ~/.claude/settings.json. This list is the whole
  *  data-collection surface: Claude Code POSTs each of these payloads to the
@@ -44,10 +40,10 @@ export const CLAUDE_HOOK_EVENTS = [
  *  rather than a generic `.backup`, which collides with other tools' backup
  *  convention: a foreign `.backup` sitting next to settings.json must not make
  *  us believe we already saved the user's original. */
-export const SETTINGS_BACKUP_SUFFIX = '.pixel-agents.backup';
+export const SETTINGS_BACKUP_SUFFIX = '.claude-office.backup';
 
 /** Suffix of the temp file used for the atomic tmp-write + rename. */
-export const SETTINGS_TMP_SUFFIX = '.pixel-agents-tmp';
+export const SETTINGS_TMP_SUFFIX = '.claude-office-tmp';
 
 /** Mode for a settings.json we create ourselves. An existing file's mode is
  *  preserved instead; this is only the fresh-file default, and it is the

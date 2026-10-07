@@ -208,7 +208,7 @@ describe('background spawns (teams OFF) classified by sidecar name', () => {
   }
 
   beforeEach(() => {
-    tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'pixel-agents-bg-'));
+    tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'claude-office-bg-'));
     setHookProvider(claudeProvider);
     setFileWatcherHookProvider(claudeProvider);
     setTeamProvider(claudeTeamProvider);
@@ -718,7 +718,7 @@ describe('background spawn persistence & derived team lifecycle', () => {
   });
 
   it('restores the lead set and skips stale child entries (leadAgentId, no teamName)', () => {
-    const tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'pixel-agents-bg-restore-'));
+    const tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'claude-office-bg-restore-'));
     const leadJsonl = path.join(tmpRoot, `${LEAD_SESSION}.jsonl`);
     const childJsonl = path.join(tmpRoot, 'child.jsonl');
     fs.writeFileSync(leadJsonl, '');

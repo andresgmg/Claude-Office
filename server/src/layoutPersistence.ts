@@ -15,7 +15,7 @@ export function readLayoutFromFile(): Record<string, unknown> | null {
     const raw = fs.readFileSync(filePath, 'utf-8');
     return JSON.parse(raw) as Record<string, unknown>;
   } catch (err) {
-    console.error('[Pixel Agents] Failed to read layout file:', err);
+    console.error('[Claude Office] Failed to read layout file:', err);
     return null;
   }
 }
@@ -32,7 +32,7 @@ export function writeLayoutToFile(layout: Record<string, unknown>): void {
     fs.writeFileSync(tmpPath, json, 'utf-8');
     fs.renameSync(tmpPath, filePath);
   } catch (err) {
-    console.error('[Pixel Agents] Failed to write layout file:', err);
+    console.error('[Claude Office] Failed to write layout file:', err);
   }
 }
 
@@ -60,17 +60,17 @@ export function loadLayout(
     const defaultRevision = (defaultLayout?.[LAYOUT_REVISION_KEY] as number) ?? 0;
     if (defaultRevision > fileRevision) {
       console.log(
-        `[Pixel Agents] Layout revision outdated (${fileRevision} < ${defaultRevision}), resetting to bundled default`,
+        `[Claude Office] Layout revision outdated (${fileRevision} < ${defaultRevision}), resetting to bundled default`,
       );
       writeLayoutToFile(defaultLayout!);
       return { layout: defaultLayout!, wasReset: true };
     }
-    console.log('[Pixel Agents] Layout loaded from file');
+    console.log('[Claude Office] Layout loaded from file');
     return { layout: fromFile, wasReset: false };
   }
 
   if (defaultLayout) {
-    console.log('[Pixel Agents] Writing bundled default layout to file');
+    console.log('[Claude Office] Writing bundled default layout to file');
     writeLayoutToFile(defaultLayout);
     return { layout: defaultLayout, wasReset: false };
   }

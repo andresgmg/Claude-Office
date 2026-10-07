@@ -134,7 +134,7 @@ test.describe('Standalone / UI', () => {
       modal.locator('button', { hasText: 'Export Layout' }).click(),
     ]);
 
-    expect(download.suggestedFilename()).toBe('pixel-agents-layout.json');
+    expect(download.suggestedFilename()).toBe('claude-office-layout.json');
   });
 
   test('browser Import Layout applies the chosen file @area:standalone', async ({
@@ -148,7 +148,7 @@ test.describe('Standalone / UI', () => {
       areas: [{ label: uniqueLabel, color: '#4287f5' }],
       areaTiles: [{ col: 1, row: 1, label: uniqueLabel }],
     });
-    const tmpFile = path.join(os.tmpdir(), `pixel-agents-import-${Date.now().toString()}.json`);
+    const tmpFile = path.join(os.tmpdir(), `claude-office-import-${Date.now().toString()}.json`);
     fs.writeFileSync(tmpFile, JSON.stringify(layout));
 
     try {
@@ -163,7 +163,7 @@ test.describe('Standalone / UI', () => {
       await expect
         .poll(() =>
           page.evaluate(
-            () => (window as TestHooksWindow).__pixelAgentsTestHooks?.getAreas?.() ?? [],
+            () => (window as TestHooksWindow).__claudeOfficeTestHooks?.getAreas?.() ?? [],
           ),
         )
         .toContainEqual({ label: uniqueLabel, color: '#4287f5' });

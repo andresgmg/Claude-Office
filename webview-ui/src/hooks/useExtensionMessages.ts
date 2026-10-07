@@ -181,16 +181,16 @@ export function useExtensionMessages(
     const handler = (msg: any) => {
       const os = getOfficeState();
       // CI / e2e diagnostic: record every received transport message on the
-      // window-side log. The fixture reads window.__pixelAgentsTestHooks.
+      // window-side log. The fixture reads window.__claudeOfficeTestHooks.
       // messageLog and attaches as JSON so CI failures can see the exact
       // sequence of messages the webview actually processed. Gated on the e2e
       // harness flag so this unbounded log never grows in a real session.
       if (isE2E && typeof window !== 'undefined') {
-        if (!window.__pixelAgentsTestHooks) window.__pixelAgentsTestHooks = {};
-        if (!window.__pixelAgentsTestHooks.messageLog) {
-          window.__pixelAgentsTestHooks.messageLog = [];
+        if (!window.__claudeOfficeTestHooks) window.__claudeOfficeTestHooks = {};
+        if (!window.__claudeOfficeTestHooks.messageLog) {
+          window.__claudeOfficeTestHooks.messageLog = [];
         }
-        window.__pixelAgentsTestHooks.messageLog.push({
+        window.__claudeOfficeTestHooks.messageLog.push({
           at: Date.now(),
           type: msg.type,
           id: msg.id,

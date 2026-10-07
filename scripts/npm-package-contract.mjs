@@ -18,7 +18,7 @@ export const REQUIRED_PACKAGE_FILES = [
   'LICENSE',
   'README.md',
   'dist/cli.js',
-  'dist/hooks/claude-hook.js',
+  'dist/hooks/claude-office-hook.js',
   'dist/webview/index.html',
   'package.json',
 ];

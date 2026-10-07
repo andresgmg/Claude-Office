@@ -30,11 +30,11 @@
 
 ## E2E coverage
 
-<!-- See pixel-agents/e2e/README.md for the suite inventory. -->
+<!-- See claude-office/e2e/README.md for the suite inventory. -->
 
 - [ ] If user-visible behavior changed, an e2e test was added or updated
-      under `pixel-agents/e2e/tests/`. Ran `npm run e2e:inventory` and
-      committed the regenerated `pixel-agents/e2e/README.md`.
+      under `claude-office/e2e/tests/`. Ran `npm run e2e:inventory` and
+      committed the regenerated `claude-office/e2e/README.md`.
 - [ ] If this PR is a refactor / docs / chore with no user-visible
       behavior change, no e2e test is needed. Explain below.
 

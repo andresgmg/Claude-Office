@@ -34,7 +34,7 @@ export const changelogEntries: ChangelogEntry[] = [
         items: [
           'Web-only fork of pixel-agents 1.4.1: the office runs in your browser, served by the local CLI',
           'The VS Code extension is gone, together with terminal adoption and the IDE-only protocol messages',
-          'A fixed server token (--token or the PIXEL_AGENTS_TOKEN variable) lets Claude Code `type: "http"` hooks be configured once',
+          'A fixed server token (--token or the CLAUDE_OFFICE_TOKEN variable) lets Claude Code `type: "http"` hooks be configured once',
           'Claude Code hook events stay the primary signal; transcript watching remains the fallback',
         ],
       },

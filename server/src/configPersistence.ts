@@ -15,7 +15,7 @@ export interface AdapterSettings {
   areaMappings: Record<string, string[]>;
 }
 
-/** All keys in AdapterSettings. Used by adapters to map `pixel-agents.foo` → `foo`.
+/** All keys in AdapterSettings. Used by adapters to map `claude-office.foo` → `foo`.
  *  The hooks preference is NOT here: it is per-provider and machine-global
  *  (the hooks it governs live in one home-directory file per provider), so it
  *  lives beside `hooksConsent` at the config top level, not per namespace. */
@@ -42,7 +42,7 @@ export type ConfigNamespace = 'standalone';
  *  unanswered, the ask is still open. */
 export type HooksConsentState = 'granted' | 'declined';
 
-export interface PixelAgentsConfig {
+export interface ClaudeOfficeConfig {
   standalone: AdapterSettings;
   externalAssetDirectories: string[];
   /** Per-provider consent to modify that provider's settings file (Claude:
@@ -148,7 +148,7 @@ function parseAdapterSettings(raw: unknown): AdapterSettings {
   };
 }
 
-export function readConfig(): PixelAgentsConfig {
+export function readConfig(): ClaudeOfficeConfig {
   const filePath = getConfigFilePath();
   try {
     if (!fs.existsSync(filePath)) {
@@ -160,7 +160,7 @@ export function readConfig(): PixelAgentsConfig {
       };
     }
     const raw = fs.readFileSync(filePath, 'utf-8');
-    const parsed = JSON.parse(raw) as Partial<PixelAgentsConfig>;
+    const parsed = JSON.parse(raw) as Partial<ClaudeOfficeConfig>;
     return {
       standalone: parseAdapterSettings(parsed.standalone),
       externalAssetDirectories: Array.isArray(parsed.externalAssetDirectories)
@@ -170,7 +170,7 @@ export function readConfig(): PixelAgentsConfig {
       hooksEnabled: parseHooksEnabled(parsed.hooksEnabled),
     };
   } catch (err) {
-    console.error('[Pixel Agents] Failed to read config file:', err);
+    console.error('[Claude Office] Failed to read config file:', err);
     return {
       standalone: { ...DEFAULT_ADAPTER_SETTINGS },
       externalAssetDirectories: [],
@@ -265,7 +265,7 @@ export function clearHooksEnabled(providerId: string): void {
   }
 }
 
-export function writeConfig(config: PixelAgentsConfig): void {
+export function writeConfig(config: ClaudeOfficeConfig): void {
   const filePath = getConfigFilePath();
   const dir = path.dirname(filePath);
   try {
@@ -277,6 +277,6 @@ export function writeConfig(config: PixelAgentsConfig): void {
     fs.writeFileSync(tmpPath, json, 'utf-8');
     fs.renameSync(tmpPath, filePath);
   } catch (err) {
-    console.error('[Pixel Agents] Failed to write config file:', err);
+    console.error('[Claude Office] Failed to write config file:', err);
   }
 }

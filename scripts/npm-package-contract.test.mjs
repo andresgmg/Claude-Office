@@ -37,10 +37,10 @@ test('extracts pack JSON after lifecycle build output', () => {
 });
 
 test('rejects a known-bad tarball missing the shipped hook', () => {
-  const files = validFiles().filter((file) => file.path !== 'dist/hooks/claude-hook.js');
+  const files = validFiles().filter((file) => file.path !== 'dist/hooks/claude-office-hook.js');
   assert.throws(
     () => validatePackageFiles(files),
-    /missing required file: dist\/hooks\/claude-hook\.js/,
+    /missing required file: dist\/hooks\/claude-office-hook\.js/,
   );
 });
 

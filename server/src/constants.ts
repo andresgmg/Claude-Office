@@ -47,7 +47,7 @@ export const GLOBAL_SCAN_ACTIVE_MIN_SIZE = 3_072; // 3KB
 /** Only adopt global JSONL files modified within this window */
 export const GLOBAL_SCAN_ACTIVE_MAX_AGE_MS = 600_000; // 10 minutes
 
-// ── Display Truncation + Pixel Agents Server paths ──────────
+// ── Display Truncation + Claude Office Server paths ──────────
 // Centralized in core/src/constants.ts; re-exported here for back-compat.
 export {
   BASH_COMMAND_DISPLAY_MAX_LENGTH,
@@ -70,7 +70,7 @@ export const MIN_PORT = 1;
 export const MAX_PORT = 65_535;
 /** Environment variable that pins the server's bearer token across restarts
  *  (the CLI's `--token` flag takes precedence). Unset -> random per start. */
-export const TOKEN_ENV_VAR = 'PIXEL_AGENTS_TOKEN';
+export const TOKEN_ENV_VAR = 'CLAUDE_OFFICE_TOKEN';
 /** Shortest token the CLI accepts from --token / TOKEN_ENV_VAR. The token is
  *  the whole privilege gate (httpServer.ts), so a trivially guessable one is
  *  refused up front. The minted default is a 36-char UUID. */
@@ -96,7 +96,7 @@ export const SESSION_END_GRACE_MS = 2000;
 export const MAX_HOOK_BODY_SIZE = 65_536; // 64KB
 
 // ── Layout/Config Persistence ──────────────────────────────
-export const LAYOUT_FILE_DIR = '.pixel-agents';
+export const LAYOUT_FILE_DIR = '.claude-office';
 export const LAYOUT_FILE_NAME = 'layout.json';
 export const LAYOUT_REVISION_KEY = 'layoutRevision';
 export const CONFIG_FILE_NAME = 'config.json';

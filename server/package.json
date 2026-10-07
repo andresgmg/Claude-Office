@@ -1,5 +1,5 @@
 {
-  "name": "pixel-agents",
+  "name": "claude-office-server",
   "private": true,
   "scripts": {
     "test": "vitest run",

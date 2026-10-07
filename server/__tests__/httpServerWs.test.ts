@@ -6,8 +6,8 @@ import { WebSocket } from 'ws';
 
 import { WS_CLOSE_FORBIDDEN_ORIGIN } from '../src/constants.js';
 
-// Isolated temp HOME: the server writes ~/.pixel-agents/{server.json,servers/}
-// and the consent assertions below read ~/.pixel-agents/config.json.
+// Isolated temp HOME: the server writes ~/.claude-office/{server.json,servers/}
+// and the consent assertions below read ~/.claude-office/config.json.
 let tmpBase: string;
 
 vi.mock('os', async () => {
@@ -15,7 +15,7 @@ vi.mock('os', async () => {
   return { ...actual, homedir: () => tmpBase };
 });
 
-const { PixelAgentsServer } = await import('../src/server.js');
+const { ClaudeOfficeServer } = await import('../src/server.js');
 const { AgentStateStore } = await import('../src/agentStateStore.js');
 const { grantHooksConsent } = await import('../src/configPersistence.js');
 
@@ -91,7 +91,7 @@ function waitForMessage(socket: WebSocket, type: string, ms = 2_000): Promise<un
 
 function readHooksConsent(): boolean {
   try {
-    const raw = fs.readFileSync(path.join(tmpBase, '.pixel-agents', 'config.json'), 'utf-8');
+    const raw = fs.readFileSync(path.join(tmpBase, '.claude-office', 'config.json'), 'utf-8');
     const consent = (JSON.parse(raw) as { hooksConsent?: Record<string, string> }).hooksConsent;
     return consent?.claude === 'granted';
   } catch {
@@ -100,13 +100,13 @@ function readHooksConsent(): boolean {
 }
 
 describe('/ws connection gate', () => {
-  let server: InstanceType<typeof PixelAgentsServer>;
+  let server: InstanceType<typeof ClaudeOfficeServer>;
   const sockets: WebSocket[] = [];
 
   beforeEach(() => {
     tmpBase = fs.mkdtempSync(path.join(os.tmpdir(), 'pxl-ws-test-'));
-    fs.mkdirSync(path.join(tmpBase, '.pixel-agents'), { recursive: true });
-    server = new PixelAgentsServer();
+    fs.mkdirSync(path.join(tmpBase, '.claude-office'), { recursive: true });
+    server = new ClaudeOfficeServer();
   });
 
   afterEach(() => {
@@ -221,16 +221,16 @@ describe('/ws connection gate', () => {
  * in someone's home directory.
  */
 describe('/ws privileged-message gate', () => {
-  let server: InstanceType<typeof PixelAgentsServer>;
+  let server: InstanceType<typeof ClaudeOfficeServer>;
   const sockets: WebSocket[] = [];
   /** Values `onSetHooksEnabled` was invoked with — the install/uninstall seam. */
   let sideEffects: boolean[];
 
   beforeEach(() => {
     tmpBase = fs.mkdtempSync(path.join(os.tmpdir(), 'pxl-ws-priv-'));
-    fs.mkdirSync(path.join(tmpBase, '.pixel-agents'), { recursive: true });
+    fs.mkdirSync(path.join(tmpBase, '.claude-office'), { recursive: true });
     sideEffects = [];
-    server = new PixelAgentsServer();
+    server = new ClaudeOfficeServer();
   });
 
   afterEach(() => {
