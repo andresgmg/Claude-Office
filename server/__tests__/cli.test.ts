@@ -6,6 +6,7 @@ import * as path from 'path';
 import { describe, expect, it } from 'vitest';
 
 import { CliArgsError, parseArgs } from '../src/cli.js';
+import { MIN_AUTH_TOKEN_LENGTH, TOKEN_ENV_VAR } from '../src/constants.js';
 import { CLAUDE_HOOK_EVENTS } from '../src/providers/hook/claude/constants.js';
 
 const CLI_BUNDLE = path.join(__dirname, '../../dist/cli.js');
@@ -119,6 +120,43 @@ describe('parseArgs', () => {
   it('parses --host', () => {
     expect(parseArgs(['--host', '0.0.0.0']).host).toBe('0.0.0.0');
   });
+
+  // 11. No --token and no env var -> undefined, so the server mints its own
+  it('leaves token undefined when neither --token nor the env var is set', () => {
+    expect(parseArgs([], {}).token).toBeUndefined();
+  });
+
+  // 12. --token is accepted and wins over the environment variable
+  it('parses --token and prefers it over the environment variable', () => {
+    const flagToken = 'f'.repeat(MIN_AUTH_TOKEN_LENGTH);
+    const envToken = 'e'.repeat(MIN_AUTH_TOKEN_LENGTH);
+    expect(parseArgs(['--token', flagToken], {}).token).toBe(flagToken);
+    expect(parseArgs(['--token', flagToken], { [TOKEN_ENV_VAR]: envToken }).token).toBe(flagToken);
+  });
+
+  // 13. The environment variable pins the token when --token is omitted
+  it('falls back to the environment variable when --token is omitted', () => {
+    const envToken = 'e'.repeat(MIN_AUTH_TOKEN_LENGTH);
+    expect(parseArgs([], { [TOKEN_ENV_VAR]: envToken }).token).toBe(envToken);
+    // An empty variable is "unset", not an (invalid) empty token.
+    expect(parseArgs([], { [TOKEN_ENV_VAR]: '' }).token).toBeUndefined();
+  });
+
+  // 14. Weak or malformed tokens are refused from both sources, not silently used
+  it('rejects a short or whitespace-bearing token from --token or the env var', () => {
+    const short = 'x'.repeat(MIN_AUTH_TOKEN_LENGTH - 1);
+    const spaced = `${'x'.repeat(MIN_AUTH_TOKEN_LENGTH)} y`;
+    expect(() => parseArgs(['--token', short], {})).toThrow(CliArgsError);
+    expect(() => parseArgs(['--token', spaced], {})).toThrow(/no whitespace/);
+    expect(() => parseArgs([], { [TOKEN_ENV_VAR]: short })).toThrow(CliArgsError);
+    expect(() => parseArgs([], { [TOKEN_ENV_VAR]: short })).toThrow(TOKEN_ENV_VAR);
+  });
+
+  // 15. --token without its operand is rejected, not ignored
+  it('rejects --token when its value is missing', () => {
+    expect(() => parseArgs(['--token'], {})).toThrow(CliArgsError);
+    expect(() => parseArgs(['--token'], {})).toThrow(/Missing value/);
+  });
 });
 
 // The TTY consent prompt is gone: first-run consent is asked in the app, as
@@ -165,15 +203,18 @@ describe('dist/cli.js entry-point guard', () => {
   /** Spawn the real bundled CLI against an isolated HOME, wait for /api/health,
    *  and hand back its output for assertions. Callers seed `tmpHome` first.
    *  `host` is the literal `--host` operand, so a caller can exercise a wildcard
-   *  bind; readiness is always probed over loopback, which every bind serves. */
+   *  bind; readiness is always probed over loopback, which every bind serves.
+   *  `extraArgs` are appended verbatim (e.g. `['--token', ...]`). */
   async function runCliServer(
     tmpHome: string,
     body: (ctx: { output: () => string; port: number }) => Promise<void>,
     host = '127.0.0.1',
+    extraArgs: string[] = [],
   ): Promise<void> {
     const workspaceDir = fs.mkdtempSync(path.join(os.tmpdir(), 'pxl-cli-workspace-'));
     const port = await getFreePort();
-    const child = spawn(process.execPath, [CLI_BUNDLE, '--port', port.toString(), '--host', host], {
+    const cliArgs = [CLI_BUNDLE, '--port', port.toString(), '--host', host, ...extraArgs];
+    const child = spawn(process.execPath, cliArgs, {
       cwd: workspaceDir,
       env: { ...process.env, HOME: tmpHome, USERPROFILE: tmpHome },
       stdio: ['ignore', 'pipe', 'pipe'],
@@ -263,6 +304,35 @@ describe('dist/cli.js entry-point guard', () => {
         expect((await fetch(url)).status).toBe(200);
       },
       '0.0.0.0',
+    );
+  });
+
+  // A fixed --token is what makes remote `type: "http"` hooks configurable
+  // once: the printed URL, the discovery file and the hook endpoint must all
+  // agree on it, and the endpoint must still refuse a request without it.
+  itBuilt('pins the printed, minted and accepted token to a fixed --token', async () => {
+    const tmpHome = fs.mkdtempSync(path.join(os.tmpdir(), 'pxl-cli-token-'));
+    const token = 'fixed-token-for-tests-0123456789';
+    await runCliServer(
+      tmpHome,
+      async ({ output, port }) => {
+        await waitForCondition(() => URL_LINE.test(output()));
+        expect(printedUrl(output()).searchParams.get('token')).toBe(token);
+        expect(mintedToken(tmpHome)).toBe(token);
+
+        const hookUrl = `http://127.0.0.1:${port.toString()}/api/hooks/claude`;
+        const body = JSON.stringify({ hook_event_name: 'SessionStart', session_id: 'cli-token' });
+        const headers = { 'content-type': 'application/json' };
+        expect((await fetch(hookUrl, { method: 'POST', headers, body })).status).toBe(401);
+        const accepted = await fetch(hookUrl, {
+          method: 'POST',
+          headers: { ...headers, authorization: `Bearer ${token}` },
+          body,
+        });
+        expect(accepted.status).toBe(200);
+      },
+      '127.0.0.1',
+      ['--token', token],
     );
   });
 

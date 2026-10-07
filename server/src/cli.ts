@@ -25,7 +25,7 @@ import {
   grantHooksConsent,
   readConfig,
 } from './configPersistence.js';
-import { MAX_PORT, MIN_PORT } from './constants.js';
+import { MAX_PORT, MIN_AUTH_TOKEN_LENGTH, MIN_PORT, TOKEN_ENV_VAR } from './constants.js';
 import { FileStateAdapter } from './fileStateAdapter.js';
 import { claudeProvider, copyHookScript, hookProviderById } from './providers/index.js';
 import { PixelAgentsServer } from './server.js';
@@ -37,6 +37,10 @@ export interface CliArgs {
    *  can run at once without a collision. --port picks a fixed one. */
   port?: number;
   host: string;
+  /** Unset -> the server mints a random token per start. `--token` (or the
+   *  TOKEN_ENV_VAR environment variable) pins one, so remote Claude Code
+   *  `type: "http"` hooks can carry a stable `Authorization: Bearer`. */
+  token?: string;
 }
 
 /** Thrown by parseArgs on an invalid --port. Kept separate from process.exit so
@@ -44,7 +48,18 @@ export interface CliArgs {
  *  place that turns a bad argument into an exit code. */
 export class CliArgsError extends Error {}
 
-export function parseArgs(argv: string[]): CliArgs {
+/** The bearer token is the whole privilege gate (httpServer.ts), so a weak or
+ *  malformed one is refused up front rather than silently accepted. */
+function validateToken(raw: string, source: string): string {
+  if (raw.length < MIN_AUTH_TOKEN_LENGTH || /\s/.test(raw)) {
+    throw new CliArgsError(
+      `Invalid ${source}: must be at least ${MIN_AUTH_TOKEN_LENGTH} characters with no whitespace.`,
+    );
+  }
+  return raw;
+}
+
+export function parseArgs(argv: string[], env: NodeJS.ProcessEnv = process.env): CliArgs {
   const args: CliArgs = { host: '127.0.0.1' };
   for (let i = 0; i < argv.length; i++) {
     if (argv[i] === '--port' || argv[i] === '-p') {
@@ -65,14 +80,33 @@ export function parseArgs(argv: string[]): CliArgs {
     } else if (argv[i] === '--host' && argv[i + 1]) {
       args.host = argv[i + 1];
       i++;
+    } else if (argv[i] === '--token') {
+      const raw = argv[i + 1];
+      if (raw === undefined) {
+        throw new CliArgsError(
+          `Missing value for --token: expected at least ${MIN_AUTH_TOKEN_LENGTH} characters.`,
+        );
+      }
+      args.token = validateToken(raw, '--token');
+      i++;
     } else if (argv[i] === '--help') {
       console.log(`Usage: pixel-agents [options]
 
 Options:
   --port, -p <number>   Port to listen on (default: OS-assigned ephemeral port)
   --host <string>       Host to bind to (default: 127.0.0.1)
+  --token <string>      Fixed bearer token for the hook and privileged UI endpoints
+                        (default: random per start; env ${TOKEN_ENV_VAR})
   --help                Show this help message`);
       process.exit(0);
+    }
+  }
+  // The flag wins; the environment variable is the restart-safe way to pin a
+  // token for a long-lived (e.g. hosted) server without it showing up in `ps`.
+  if (args.token === undefined) {
+    const fromEnv = env[TOKEN_ENV_VAR];
+    if (fromEnv !== undefined && fromEnv !== '') {
+      args.token = validateToken(fromEnv, TOKEN_ENV_VAR);
     }
   }
   return args;
@@ -233,6 +267,7 @@ async function main(): Promise<void> {
       embedded: false,
       host: args.host,
       port: args.port,
+      token: args.token,
       staticDir,
       assetCache,
       onSetHooksEnabled,

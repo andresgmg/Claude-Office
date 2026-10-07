@@ -69,6 +69,10 @@ export class PixelAgentsServer {
     assetCache?: AssetCache;
     onSetHooksEnabled?: SetHooksEnabledSideEffect;
     onReloadAssets?: ReloadAssetsSideEffect;
+    /** Fixed bearer token for the hook and privileged endpoints. Unset -> a
+     *  fresh random token per start. A fixed one lets remote Claude Code
+     *  `type: "http"` hooks be configured once and survive restarts. */
+    token?: string;
   }): Promise<ServerConfig> {
     const embedded = options?.embedded ?? true;
     const wantsSpa = !embedded;
@@ -87,11 +91,17 @@ export class PixelAgentsServer {
       console.log(
         `[Pixel Agents] Reusing existing ${wantsSpa ? 'standalone' : 'embedded'} server on port ${candidate.port} (PID ${candidate.pid})`,
       );
+      if (options?.token !== undefined && options.token !== candidate.token) {
+        console.warn(
+          '[Pixel Agents] Ignoring the requested token: the running server keeps the token it was started with.',
+        );
+      }
       return candidate;
     }
 
-    // Start our own server
-    const token = crypto.randomUUID();
+    // Start our own server. A caller-supplied token keeps the bearer stable
+    // across restarts (remote hooks are configured once); otherwise mint one.
+    const token = options?.token ?? crypto.randomUUID();
     const store = options?.store;
 
     const { app, port } = await createHttpServer({

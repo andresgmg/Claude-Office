@@ -68,6 +68,13 @@ export const SERVERS_DIR = 'servers';
  *  or the CLI's --port option. */
 export const MIN_PORT = 1;
 export const MAX_PORT = 65_535;
+/** Environment variable that pins the server's bearer token across restarts
+ *  (the CLI's `--token` flag takes precedence). Unset -> random per start. */
+export const TOKEN_ENV_VAR = 'PIXEL_AGENTS_TOKEN';
+/** Shortest token the CLI accepts from --token / TOKEN_ENV_VAR. The token is
+ *  the whole privilege gate (httpServer.ts), so a trivially guessable one is
+ *  refused up front. The minted default is a 36-char UUID. */
+export const MIN_AUTH_TOKEN_LENGTH = 16;
 /** Format version stamped on every registry entry (both the per-server records
  *  and the legacy server.json). Bump on breaking field changes; additive
  *  fields (servesSpa, protocol itself) don't require a bump -- readers already
