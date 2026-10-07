@@ -223,10 +223,6 @@ export interface Character {
   matrixEffectSeeds: number[];
   /** Workspace folder name (only set for multi-root workspaces) */
   folderName?: string;
-  /** Headless agent: adopted from outside the office, so there is no terminal to
-   *  focus. Rendered translucent. Teammates and sub-agents are never headless —
-   *  clicking them reaches their lead's / parent's terminal. */
-  isHeadless?: boolean;
   /** The first-run consent greeter. A MARKER, not a gate: the greeter lives in
    *  OfficeState.greeter, outside the agent map, so seat assignment, palette
    *  diversity, the FSM, hit-testing and seat persistence never see it — no

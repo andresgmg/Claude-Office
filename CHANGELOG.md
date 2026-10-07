@@ -14,7 +14,7 @@ Web-only fork of pixel-agents v1.4.1, renamed to Claude Office and trimmed to wh
 - **Hook identity.** The installer recognizes only `/.claude-office/hooks/claude-office-hook.js`; legacy `pixel-agents` hook names are no longer matched, so stale upstream entries are left for the user to remove.
 - **External asset directories** take a typed absolute path (`addExternalAssetDirectory` requires `path`).
 - **Pre-commit.** gitleaks is optional: when it is missing the secret scan is skipped with a warning instead of blocking the commit.
-- **Headless-as-ghost cue** disabled at the source (every agent here is adopted, so the cue carried no information); its setting and message remain until their removal.
+- **Headless-as-ghost cue removed** ("Display Headless as Ghosts", `setGhostHeadlessAgents`, the `ghostHeadlessAgents` setting and the translucent rendering): every agent here is adopted, so the cue carried no information.
 
 ### Removed
 

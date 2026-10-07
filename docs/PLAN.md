@@ -197,9 +197,9 @@ el salto de red WSL→Windows). Lo mismo al revés.
    transcript, solo local).
 6. ✅ **Pruebas.** Tests Vitest de `server/` (28 archivos) y `webview-ui/` (10) adaptados;
    e2e de Playwright reducido a los 10 tests del servidor web; e2e de VS Code eliminado.
-7. ⏳ **Limpieza pendiente.** Quitar de extremo a extremo la función "headless as ghosts"
-   (ajuste, mensaje `setGhostHeadlessAgents`, alfa del renderer y sus tests), hoy
-   desactivada en origen.
+7. ✅ **Limpieza final.** Eliminada de extremo a extremo la función "headless as ghosts"
+   (ajuste, mensaje `setGhostHeadlessAgents`, alfa del renderer y sus tests) y el resto de
+   código que solo usaba la extensión (`wasReset`, `loadLayout`, constantes huérfanas).
 
 ### Fase 2 — Subdominio
 

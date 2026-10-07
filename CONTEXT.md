@@ -23,15 +23,11 @@ A Claude session tracked by Claude Office. Every agent is adopted: it was starte
 _Avoid_: bot, terminal (as a synonym), session (as a synonym)
 
 **Headless agent**:
-Upstream's term for an agent with no terminal to focus. In Claude Office every agent is headless, since the office never launches or attaches terminals, so the term carries no information here and the Ghost cue is disabled. Kept for upstream parity only.
+Upstream's term for an agent with no terminal to focus, optionally drawn translucent (a "ghost"). In Claude Office every agent is headless, since the office never launches or attaches terminals, so the term carries no information here and the ghost rendering was removed. Kept for upstream parity only.
 
 **Character**:
 The animated pixel-art figure representing an agent in the office. An agent has a status and a session; its character has a position and an animation state.
 _Avoid_: avatar, sprite (a sprite is the image asset, not the figure)
-
-**Ghost**:
-Upstream's translucent rendering of a headless agent's character — the visual shorthand for "nothing to focus here". Disabled in Claude Office, an adapter without terminals where every agent would qualify and the cue would say nothing; the setting and protocol message remain only until their removal.
-_Avoid_: faded, dimmed, transparent, inactive (that's a status)
 
 **Sub-agent**:
 An unnamed piece of delegated work spawned by an agent, visualized with its own character near its parent — around it, not in a seat. Not an Agent (no session of its own) and not a Teammate (no name). It exists only for the duration of its task, which may outlive the parent's turn. Having no name is what makes it a sub-agent.

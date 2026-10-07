@@ -5,7 +5,6 @@ import { playDoneSound, playPermissionSound, setSoundEnabled } from '../notifica
 import type { ExistingAgentMeta, PendingAgent } from '../office/engine/existingAgents.js';
 import { reconcileExistingAgents } from '../office/engine/existingAgents.js';
 import type { OfficeState } from '../office/engine/officeState.js';
-import { setGhostHeadlessAgents as setRendererGhostHeadlessAgents } from '../office/engine/renderer.js';
 import { setFloorSprites } from '../office/floorTiles.js';
 import { buildDynamicCatalog } from '../office/layout/furnitureCatalog.js';
 import { migrateLayoutColors } from '../office/layout/layoutSerializer.js';
@@ -21,18 +20,6 @@ import type { OfficeLayout, ToolActivity } from '../office/types.js';
 import { setWallSprites } from '../office/wallTiles.js';
 import { isE2E } from '../runtime.js';
 import { transport } from '../transport/index.js';
-
-/**
- * A Headless agent is one the office adopted from outside and therefore has no
- * terminal to focus; its character could render translucent as a cue. The web
- * server has no terminals at all, so every agent would qualify and the cue
- * would distinguish nothing — it stays off. The plumbing (renderer alpha,
- * `setGhostHeadlessAgents` setting) is kept until the feature is removed
- * end to end.
- */
-const HEADLESS_CUE_ENABLED = false;
-const isHeadlessAgent = (isExternal: boolean | undefined): boolean =>
-  isExternal === true && HEADLESS_CUE_ENABLED;
 
 export interface SubagentCharacter {
   id: number;
@@ -81,8 +68,6 @@ interface ExtensionMessageState {
   watchAllSessions: boolean;
   setWatchAllSessions: (v: boolean) => void;
   alwaysShowLabels: boolean;
-  ghostHeadlessAgents: boolean;
-  setGhostHeadlessAgents: (v: boolean) => void;
   hooksEnabled: boolean;
   setHooksEnabled: (v: boolean) => void;
   /** Actual install state per provider (hooksStatus messages) — absent/false
@@ -133,7 +118,6 @@ export function useExtensionMessages(
   const [extensionVersion, setExtensionVersion] = useState('');
   const [watchAllSessions, setWatchAllSessions] = useState(false);
   const [alwaysShowLabels, setAlwaysShowLabels] = useState(false);
-  const [ghostHeadlessAgents, setGhostHeadlessAgentsState] = useState(false);
   const [hooksEnabled, setHooksEnabled] = useState(true);
   const [hooksInstalled, setHooksInstalled] = useState<Record<string, boolean>>({});
   const [hooksStatusSeq, setHooksStatusSeq] = useState<Record<string, number>>({});
@@ -145,14 +129,6 @@ export function useExtensionMessages(
   const consentRequest = consentQueue[0] ?? null;
   const [areaMappings, setAreaMappings] = useState<Record<string, string[]>>({});
   const [showAreas, setShowAreas] = useState(false);
-
-  // The renderer keeps its own module-level copy (read every rAF frame), so both
-  // sources of truth move together — the persisted value on settingsLoaded and
-  // the user's click in Settings.
-  const applyGhostHeadlessAgents = useCallback((enabled: boolean) => {
-    setGhostHeadlessAgentsState(enabled);
-    setRendererGhostHeadlessAgents(enabled);
-  }, []);
 
   // Track whether initial layout has been loaded (ref to avoid re-render)
   const layoutReadyRef = useRef(false);
@@ -225,7 +201,6 @@ export function useExtensionMessages(
         // Add buffered agents now that layout (and seats) are correct
         for (const p of pendingAgents) {
           os.addAgent(p.id, p.palette, p.hueShift, p.seatId, true, p.folderName);
-          if (p.isHeadless) os.setHeadless(p.id, true);
         }
         pendingAgents = [];
         layoutReadyRef.current = true;
@@ -274,9 +249,6 @@ export function useExtensionMessages(
           const hueShift = msg.hueShift as number | undefined;
           os.addAgent(id, palette, hueShift, undefined, undefined, folderName);
           noteFolderName(folderName);
-          if (isHeadlessAgent(msg.isExternal as boolean | undefined)) {
-            os.setHeadless(id, true);
-          }
         }
         saveAgentSeats(os);
       } else if (msg.type === 'agentClosed') {
@@ -310,11 +282,8 @@ export function useExtensionMessages(
         const incoming = msg.agents as number[];
         const meta = (msg.agentMeta || {}) as Record<number, ExistingAgentMeta>;
         const folderNames = (msg.folderNames || {}) as Record<number, string>;
-        const externalAgents = (msg.externalAgents || {}) as Record<number, boolean>;
-        const headlessAgents: Record<number, boolean> = {};
         for (const id of incoming) {
           noteFolderName(folderNames[id]);
-          if (isHeadlessAgent(externalAgents[id])) headlessAgents[id] = true;
         }
         // Order-independent restore: add agents now if the layout (and its seats)
         // is already built, otherwise buffer them for the next layoutLoaded.
@@ -328,7 +297,6 @@ export function useExtensionMessages(
             folderNames,
             layoutReadyRef.current,
             pendingAgents,
-            headlessAgents,
           )
         ) {
           saveAgentSeats(os);
@@ -636,9 +604,6 @@ export function useExtensionMessages(
         if (typeof msg.alwaysShowLabels === 'boolean') {
           setAlwaysShowLabels(msg.alwaysShowLabels as boolean);
         }
-        if (typeof msg.ghostHeadlessAgents === 'boolean') {
-          applyGhostHeadlessAgents(msg.ghostHeadlessAgents as boolean);
-        }
         if (typeof msg.hooksEnabled === 'boolean') {
           setHooksEnabled(msg.hooksEnabled as boolean);
         }
@@ -757,8 +722,6 @@ export function useExtensionMessages(
     watchAllSessions,
     setWatchAllSessions,
     alwaysShowLabels,
-    ghostHeadlessAgents,
-    setGhostHeadlessAgents: applyGhostHeadlessAgents,
     hooksEnabled,
     hooksInstalled,
     hooksStatusSeq,

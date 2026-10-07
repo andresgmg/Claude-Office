@@ -162,9 +162,9 @@ The fork is Claude-only by decision. The provider seam (`server/src/providers/ho
 `core/asyncapi.yaml` is the contract. Pinned to **3.0.0** because `@asyncapi/modelina@5.10.1` declares `supportedVersions: ['3.0.0']` only; bumping to 3.1.0 produces `export type Root = any`. Revisit when Modelina ships 3.1.0 support.
 
 - **29 ServerMessage variants** (server → client): `providerCapabilities`, agent lifecycle (`agentCreated`, `agentClosed`, `existingAgents`, `agentStatus`), agent activity (`agentToolStart/Done/sClear`, `agentToolPermission/Clear`), sub-agent activity (`subagentToolStart/Done`, `subagentClear`, `subagentToolPermission`), `agentTeamInfo`, `agentContextUsage`, assets (`layoutLoaded`, `furnitureAssetsLoaded`, `characterSpritesLoaded`, `petSpritesLoaded`, `floorTilesLoaded`, `wallTilesLoaded`, `carpetTilesLoaded`, `externalAssetDirectoriesUpdated`), settings (`settingsLoaded`, `hooksStatus`, `hooksConsentRequest`, `areaMappingsLoaded`), `agentDiagnostics`.
-- **17 ClientMessage variants** (client → server): `webviewReady`, `closeAgent`, layout (`saveAgentSeats`, `saveLayout`, `saveAreaMappings`, `setShowAreas`), settings (`setSoundEnabled`, `setHooksEnabled`, `hooksConsentResponse`, `setWatchAllSessions`, `setAlwaysShowLabels`, `setGhostHeadlessAgents`, `setHooksInfoShown`, `setLastSeenVersion`), assets (`addExternalAssetDirectory` with a required `path`, `removeExternalAssetDirectory`), `requestDiagnostics`.
+- **16 ClientMessage variants** (client → server): `webviewReady`, `closeAgent`, layout (`saveAgentSeats`, `saveLayout`, `saveAreaMappings`, `setShowAreas`), settings (`setSoundEnabled`, `setHooksEnabled`, `hooksConsentResponse`, `setWatchAllSessions`, `setAlwaysShowLabels`, `setHooksInfoShown`, `setLastSeenVersion`), assets (`addExternalAssetDirectory` with a required `path`, `removeExternalAssetDirectory`), `requestDiagnostics`.
 
-The IDE-only messages of the upstream protocol (`agentSelected`, `workspaceFolders`, `launchAgent`, `focusAgent`, `exportLayout`, `importLayout`, `openSessionsFolder`) were removed; layout export/import happens in the browser.
+The IDE-only messages of the upstream protocol (`agentSelected`, `workspaceFolders`, `launchAgent`, `focusAgent`, `exportLayout`, `importLayout`, `openSessionsFolder`, `setGhostHeadlessAgents`) and the `wasReset` / `ghostHeadlessAgents` fields were removed; layout export/import happens in the browser. `isExternal` / `externalAgents` are still sent (always true here) but no longer read by the webview.
 
 Both unions use `oneOf` with `discriminator: type`. Every concrete message sets `additionalProperties: false`.
 
@@ -290,7 +290,7 @@ Per-agent runtime data: provider reference, session key, transcript-fallback fie
   hooks/claude-office-hook.js  Bundled hook script (CJS, shebang)
 ```
 
-`FileStateAdapter({ namespace: 'standalone' })` is the only state adapter (`ConfigNamespace = 'standalone'`). Settings under the namespace: `soundEnabled`, `lastSeenVersion`, `alwaysShowLabels`, `watchAllSessions`, `hooksInfoShown`, `ghostHeadlessAgents`; the hooks preference and consent are per-provider and machine-global, at the config top level.
+`FileStateAdapter({ namespace: 'standalone' })` is the only state adapter (`ConfigNamespace = 'standalone'`). Settings under the namespace: `soundEnabled`, `lastSeenVersion`, `alwaysShowLabels`, `watchAllSessions`, `hooksInfoShown`, `showAreas`, `areaMappings`; the hooks preference and consent are per-provider and machine-global, at the config top level.
 
 Layout writes are atomic via tmp + rename. There is no cross-process layout watcher: one server owns the file.
 
@@ -349,8 +349,6 @@ Custom ESLint rules (`eslint-rules/claude-office-rules.mjs`, prefix `claude-offi
 **Spawn/despawn effect**: Matrix-style digital rain animation (0.3 s). 16 vertical columns sweep top-to-bottom with staggered timing. Spawn: green rain reveals character pixels. Despawn: character pixels consumed by green rain trails. `matrixEffect` field on Character (`'spawn'`/`'despawn'`/`null`). Normal FSM is paused during effect. Restored agents (`existingAgents`) use `skipSpawnEffect: true` to appear instantly.
 
 **Sub-agents**: Negative IDs (from -1 down). Created on `agentToolStart` with "Subtask:" prefix, or lazily by `subagentToolStart` when missing (watched background spawns, post-reload recreation). Same palette + hueShift as parent. Clicking one selects its parent. Not persisted. Spawn at the closest free walkable tile to the parent (`closestFreeWalkableTile`) — around it, never in a seat. Idle (stop typing) when every tracked sub-tool row is done; overlay shows the latest non-done sub-tool status, falling back to the Subtask label.
-
-**Headless cue**: upstream rendered adopted agents translucent ("Display Headless as Ghosts"). Here every agent is adopted, so the cue is disabled at the source (`HEADLESS_CUE_ENABLED = false` in `useExtensionMessages.ts`); the setting, the `setGhostHeadlessAgents` message and `HEADLESS_CHARACTER_ALPHA` remain only until their scheduled removal.
 
 **Speech bubbles**: Permission ("..." amber dots) stays until clicked/cleared. Waiting (green checkmark) auto-fades 2 s. Sprites in `spriteData.ts`.
 
