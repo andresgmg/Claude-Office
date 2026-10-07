@@ -1,9 +1,9 @@
 # Claude Office manual hook server requests
 #
 # Usage:
-# 1. Start the VS Code extension or run `npx claude-office` so the local hook server is running.
+# 1. Run `node dist/cli.js --port 3100` so the local hook server is running.
 # 2. Copy `port` and `token` from `~/.claude-office/server.json` into the variables below.
-# 3. Set `cwd` to a workspace folder opened in the Extension Development Host,
+# 3. Set `cwd` to the folder the server was started from,
 #    or enable "Watch All Sessions" in Claude Office.
 # 4. Run the requests in order with a REST client that supports `.http` files.
 #

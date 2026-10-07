@@ -9,28 +9,28 @@ The machine Claude Office runs on — a laptop, a phone, a VPS, a Raspberry Pi. 
 _Avoid_: platform, environment, server (that's the runtime process)
 
 **Adapter**:
-The integration that connects one editor or application — VS Code, standalone, a macOS app, and the like — to Claude Office. An adapter composes the runtime and the office UI, and binds them to that environment's terminals, storage, and conventions. One adapter per editor or application; VS Code and standalone are the two today.
+The integration that connects one host application to Claude Office. An adapter composes the runtime and the office UI, and binds them to that environment's storage and conventions. Standalone is the only adapter; the upstream project's VS Code adapter was removed in this fork.
 _Avoid_: host (that's the machine it runs on), surface, flavor, platform, edition
 
 **Standalone**:
-The adapter that serves the office to a browser from a local server, independent of any editor.
+The adapter that serves the office to a browser from a local server, independent of any editor. It observes sessions; it never launches them or attaches terminals.
 _Avoid_: CLI (that's the entry command, not the adapter), browser mode
 
 ## Agents & Teams
 
 **Agent**:
-An AI coding session tracked by Claude Office, whether spawned from the office or adopted from an external terminal.
+A Claude session tracked by Claude Office. Every agent is adopted: it was started outside the office, in a terminal, an IDE, the cloud or an Agent SDK program.
 _Avoid_: bot, terminal (as a synonym), session (as a synonym)
 
 **Headless agent**:
-An agent with no terminal — a non-interactive run adopted from outside the office, for example. A full citizen: it has a seat and can be selected, but there is no terminal to focus. Agents it spawns are sub-agents or teammates like anyone else's. Optionally drawn as a Ghost.
+Upstream's term for an agent with no terminal to focus. In Claude Office every agent is headless, since the office never launches or attaches terminals, so the term carries no information here and the Ghost cue is disabled. Kept for upstream parity only.
 
 **Character**:
 The animated pixel-art figure representing an agent in the office. An agent has a status and a session; its character has a position and an animation state.
 _Avoid_: avatar, sprite (a sprite is the image asset, not the figure)
 
 **Ghost**:
-A character drawn translucent because its agent is headless — the visual shorthand for "nothing to focus here". Opt-in: off unless the user turns on "Display Headless as Ghosts", and never used in adapters without terminals, where every agent would qualify and the cue would say nothing. Teammates and sub-agents are never ghosts; clicking one reaches its lead's or parent's terminal.
+Upstream's translucent rendering of a headless agent's character — the visual shorthand for "nothing to focus here". Disabled in Claude Office, an adapter without terminals where every agent would qualify and the cue would say nothing; the setting and protocol message remain only until their removal.
 _Avoid_: faded, dimmed, transparent, inactive (that's a status)
 
 **Sub-agent**:
@@ -51,7 +51,7 @@ _Avoid_: inline teammate, tmux teammate, session teammate (former run-style dist
 ## Agent Lifecycle
 
 **Launch**:
-Start a new agent from the office.
+Start a new agent from the office. Not available in Claude Office, which only observes; the word is kept so it is never used for adoption.
 _Avoid_: spawn (that's the character-level visual event), create
 
 **Adopt**:
@@ -80,7 +80,7 @@ The camera tracking the selected character. Ends on manual pan or deselection.
 _Avoid_: track
 
 **Focus**:
-Bring an agent's terminal to the front. Reserved exclusively for terminals — never the in-office highlight.
+Bring an agent's terminal to the front. Not available in Claude Office (there are no terminals); the word stays reserved so it is never used for the in-office highlight.
 
 ## First Run
 
@@ -146,11 +146,11 @@ A blocking tile that visually connects to adjacent walls.
 A decorative layer painted over floor tiles.
 
 **Area**:
-A named region of tiles. Areas exist so workspace folders can be mapped to them.
+A named region of tiles. Areas exist so project folders can be mapped to them.
 _Avoid_: zone, region
 
 **Area mapping**:
-The assignment of a workspace folder to one or more areas. Many folders may share an area. Agents launched from a folder prefer seats inside any of its areas.
+The assignment of a project folder (an agent's working directory) to one or more areas. Many folders may share an area. Agents adopted from a folder prefer seats inside any of its areas.
 
 **Furniture**:
 A placeable item in the layout — desks, chairs, storage, electronics, decor.
@@ -196,7 +196,7 @@ _Avoid_: file fallback, transcript mode, polling mode
 ## Integration Boundary
 
 **Provider**:
-The integration that connects one coding-agent CLI — Claude Code, Codex, Pi, Antigravity, OpenClaw, and the like — to Claude Office. A provider normalizes its CLI's raw activity into agent events and knows how to install that CLI's hooks. One provider per CLI; Claude Code is the reference implementation.
+The integration that connects one agent source to Claude Office. A provider normalizes raw activity into agent events and knows how to install that source's hooks. Claude Code is the only provider, and the fork stays Claude-only by decision; cloud sessions and Agent SDK agents feed the same provider through its hook endpoint rather than adding one.
 _Avoid_: plugin, connector
 
 **Agent event**:
@@ -208,9 +208,9 @@ The adapter-independent core that tracks agents and drives the office. It is a s
 _Avoid_: server, backend
 
 **Transport**:
-The channel carrying protocol messages between the office UI and the runtime. The protocol is identical on every adapter; only the wire differs.
+The channel carrying protocol messages between the office UI and the runtime. A WebSocket is the only transport today; the protocol is defined independently of the wire.
 _Avoid_: connection, socket
 
 **Protocol**:
-The message contract between the office UI and the runtime, shared by every adapter and defined in a single source of truth.
+The message contract between the office UI and the runtime, defined in a single source of truth (`core/asyncapi.yaml`).
 _Avoid_: API

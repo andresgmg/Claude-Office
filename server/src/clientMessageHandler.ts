@@ -92,9 +92,8 @@ export function handleClientMessage(
       break;
 
     case 'closeAgent': {
-      // Standalone agents are always external (no terminal), so mirror the VS
-      // Code external-agent branch: dismiss the file (so the external scanner
-      // doesn't re-adopt it) then remove. removeAgent fires the agentRemoved
+      // Every agent is external (no terminal): dismiss the file (so the
+      // external scanner doesn't re-adopt it) then remove. removeAgent fires the agentRemoved
       // store event, which httpServer maps to an agentClosed broadcast.
       const id = msg.id as number;
       const agent = store.get(id);

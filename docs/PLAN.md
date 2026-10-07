@@ -1,12 +1,14 @@
 # Oficina virtual pixel art para agentes Claude — informe de investigación y plan
 
-Fecha: 7 de octubre de 2026
+Fecha del informe: 7 de octubre de 2026. El estado de la hoja de ruta se actualiza en este
+mismo archivo (✅ hecho, ⏳ pendiente).
 
 ## Resumen ejecutivo
 
-- **Recomendación:** hacer un fork de [pixel-agents-hq/pixel-agents](https://github.com/pixel-agents-hq/pixel-agents)
-  (9.5k estrellas, MIT, TypeScript, pixel art top-down con personajes CC0) y quitar
-  únicamente la extensión de VS Code, quedándonos con su modo web (`npx pixel-agents`).
+- **Recomendación (adoptada):** hacer un fork de [pixel-agents-hq/pixel-agents](https://github.com/pixel-agents-hq/pixel-agents)
+  (9.5k estrellas, MIT, TypeScript, pixel art top-down con personajes CC0), quitar la
+  extensión de VS Code y todo lo que solo existía por ella, y quedarnos con su modo web,
+  renombrado a `claude-office`.
 - Es el único candidato que, a la vez, está pensado 100% para Claude Code, usa hooks de
   Claude Code como fuente principal de datos, modela subagentes y equipos, y tiene una
   estética muy cercana a Pokémon.
@@ -26,16 +28,19 @@ y tus agentes propios con el Agent SDK.
 
 ## Decisiones tomadas
 
-| Tema | Decisión |
-|---|---|
-| Agentes a mostrar | Claude Code local (terminal/IDE), Claude Code en la web (cloud) y agentes propios con Agent SDK. Sin otros CLIs: 100% Claude. |
-| Base | Fork de `pixel-agents-hq/pixel-agents`. |
-| Dónde vive el código | Por ahora nada; solo este informe. El fork lo crearás tú cuando decidas avanzar. |
-| v1 debe mostrar | Actividad en vivo, subagentes y equipos, proyecto/rama/contexto, clic para ver detalle. |
-| Sesiones cloud | Local primero. El servidor nace preparado para hooks remotos con token; las sesiones cloud aparecen en la fase 2. |
-| Hosting fase 2 | Por decidir. El plan usa Docker genérico. |
-| Sistema operativo | Windows (nativo o WSL). |
-| Minimalismo | Quitar solo la extensión de VS Code. La terminal web se añade en la fase 2; la v1 solo observa. |
+| Tema                 | Decisión                                                                                                                                                                                                                                                                                           |
+| -------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Agentes a mostrar    | Claude Code local (terminal/IDE), Claude Code en la web (cloud) y agentes propios con Agent SDK. Sin otros CLIs: 100% Claude.                                                                                                                                                                      |
+| Base                 | Fork de `pixel-agents-hq/pixel-agents`.                                                                                                                                                                                                                                                            |
+| Dónde vive el código | Repositorio privado `andresgmg/claude-office`, con el historial completo de pixel-agents v1.4.1 para poder hacer `git merge upstream/main`.                                                                                                                                                        |
+| v1 debe mostrar      | Actividad en vivo, subagentes y equipos, proyecto/rama/contexto, clic para ver detalle.                                                                                                                                                                                                            |
+| Sesiones cloud       | Local primero. El servidor nace preparado para hooks remotos con token; las sesiones cloud aparecen en la fase 2.                                                                                                                                                                                  |
+| Hosting fase 2       | Por decidir. El plan usa Docker genérico.                                                                                                                                                                                                                                                          |
+| Sistema operativo    | Windows (nativo o WSL).                                                                                                                                                                                                                                                                            |
+| Minimalismo          | Limpieza profunda: se elimina la extensión de VS Code y todo lo que solo existía por ella (adopción de terminales, mensajes del protocolo exclusivos del IDE, migración de estado, empaquetado VSIX, CI, plantillas de GitHub, Vercel). La terminal web se añade en la fase 2; la v1 solo observa. |
+| Tests e2e de VS Code | Eliminados (81 tests). Quedan los 10 del servidor web.                                                                                                                                                                                                                                             |
+| Nombre               | Renombrar todo: paquete y comando `claude-office`, directorio de estado `~/.claude-office/`, script `claude-office-hook.js`, variables `CLAUDE_OFFICE_*`. Sin compatibilidad con los nombres antiguos.                                                                                             |
+| CI                   | Sin CI por ahora. Las comprobaciones (`npm run build`, `npm test`, `npm run e2e`) se ejecutan en local antes de subir.                                                                                                                                                                             |
 
 ## Cómo obtiene datos un proyecto así (verificado en la documentación oficial)
 
@@ -62,8 +67,8 @@ Ejemplo de configuración (fase 2) en `~/.claude/settings.json`:
           {
             "type": "http",
             "url": "https://oficina.tu-dominio.com/api/hooks/claude",
-            "headers": { "Authorization": "Bearer $OFFICE_TOKEN" },
-            "allowedEnvVars": ["OFFICE_TOKEN"],
+            "headers": { "Authorization": "Bearer $CLAUDE_OFFICE_TOKEN" },
+            "allowedEnvVars": ["CLAUDE_OFFICE_TOKEN"],
             "timeout": 5
           }
         ]
@@ -73,7 +78,10 @@ Ejemplo de configuración (fase 2) en `~/.claude/settings.json`:
 }
 ```
 
-(Se repite el mismo bloque para el resto de eventos de la lista.)
+(Se repite el mismo bloque para el resto de eventos de la lista.) El snippet completo para
+los 12 eventos que instala el servidor, la verificación con `curl` y las notas de seguridad
+están en [docs/remote-hooks.md](remote-hooks.md); en local funciona igual con
+`http://127.0.0.1:3100`.
 
 **Agent SDK.** TypeScript y Python registran callbacks en `options.hooks` para
 `PreToolUse`, `PostToolUse`, `PermissionRequest`, `Notification`, `SubagentStart`,
@@ -91,19 +99,19 @@ máquina y el mismo sistema de archivos que Claude Code).
 
 ## Candidatos evaluados en GitHub
 
-| Repo | ★ | Lic. | Stack | Datos de Claude | Estilo | Web sin IDE | Deploy remoto | Veredicto |
-|---|---|---|---|---|---|---|---|---|
-| [pixel-agents-hq/pixel-agents](https://github.com/pixel-agents-hq/pixel-agents) (antes pablodelucca) | 9.5k | MIT | TypeScript; React 19 + Vite + Canvas 2D; Fastify 5 + WebSocket | Hooks (POST `/api/hooks/:providerId`) + fallback transcripts | Top-down; personajes MetroCity (CC0); muebles/suelos incluidos en `webview-ui/public/assets/` | Sí: `npx pixel-agents` (v1.4.1) | No (bind 127.0.0.1, token en URL) | **Base recomendada** |
-| [paulrobello/claude-office](https://github.com/paulrobello/claude-office) | 550 | MIT | FastAPI (Python 3.13) + Next.js + PixiJS | Hooks Python + Event API | Top-down | Sí | Sí (Docker) | Completo pero pesado: dos runtimes |
-| [KbWen/agent-virtual-office](https://github.com/KbWen/agent-virtual-office) | 36 | MIT | React 19 + Vite + SVG | Hooks + API HTTP | Top-down en SVG dibujado a mano | Sí | Sí (Nginx/PM2/TLS, token) | Ligero; menos "pixel art real"; comunidad pequeña |
-| [rolandal/pixel-agents-standalone](https://github.com/rolandal/pixel-agents-standalone) | 55 | MIT | Express + WS + React/Canvas | Solo transcripts | Top-down | Sí | No | Superado: el upstream ya tiene modo web |
-| [W17ant/Claude-Office](https://github.com/W17ant/Claude-Office) | 197 | MIT | Express + WS + React, SQLite | Hooks bash → curl | Isométrico | Sí | No | Descartado: isométrico |
-| [deadronos/claude-ville](https://github.com/deadronos/claude-ville) | — | MIT | Node + React + Three.js | Transcripts | Isométrico 3D | Sí | Sí | Descartado: no es 2D plano |
-| [ivanwng97/pixtuoid](https://github.com/ivanwng97/pixtuoid) | 486 | MIT | Rust / Ratatui | Hooks + transcripts | Pixel en terminal | Parcial | No | Descartado: es TUI |
-| [itsArnavPrasad/pixel-office](https://github.com/itsArnavPrasad/pixel-office) | 1 | — | Mod de Claude Code + VS Code | Mod interno | Pixel | No | No | Descartado: sin web |
-| [ddx-510/opencode-pixel-office](https://github.com/ddx-510/opencode-pixel-office) | 10 | — | Express + WS + React + PixiJS | Hooks | Top-down (tileset DonArg) | Sí | LAN/QR | Muy pequeño; licencia sin especificar |
-| [kevinshen56714/SkyOffice](https://github.com/kevinshen56714/SkyOffice) | 1.3k | MIT | Phaser 3 + React + Colyseus | Ninguno (oficina para humanos) | Top-down (assets LimeZu de pago) | Sí | Sí | Solo referencia |
-| [phaserjs/template-vite-ts](https://github.com/phaserjs/template-vite-ts) | 195 | MIT | Phaser 4 + Vite + TS | Ninguno | — | Sí | Estático | Base si algún día se rehace desde cero |
+| Repo                                                                                                 | ★    | Lic. | Stack                                                          | Datos de Claude                                              | Estilo                                                                                        | Web sin IDE                     | Deploy remoto                     | Veredicto                                         |
+| ---------------------------------------------------------------------------------------------------- | ---- | ---- | -------------------------------------------------------------- | ------------------------------------------------------------ | --------------------------------------------------------------------------------------------- | ------------------------------- | --------------------------------- | ------------------------------------------------- |
+| [pixel-agents-hq/pixel-agents](https://github.com/pixel-agents-hq/pixel-agents) (antes pablodelucca) | 9.5k | MIT  | TypeScript; React 19 + Vite + Canvas 2D; Fastify 5 + WebSocket | Hooks (POST `/api/hooks/:providerId`) + fallback transcripts | Top-down; personajes MetroCity (CC0); muebles/suelos incluidos en `webview-ui/public/assets/` | Sí: `npx pixel-agents` (v1.4.1) | No (bind 127.0.0.1, token en URL) | **Base recomendada**                              |
+| [paulrobello/claude-office](https://github.com/paulrobello/claude-office)                            | 550  | MIT  | FastAPI (Python 3.13) + Next.js + PixiJS                       | Hooks Python + Event API                                     | Top-down                                                                                      | Sí                              | Sí (Docker)                       | Completo pero pesado: dos runtimes                |
+| [KbWen/agent-virtual-office](https://github.com/KbWen/agent-virtual-office)                          | 36   | MIT  | React 19 + Vite + SVG                                          | Hooks + API HTTP                                             | Top-down en SVG dibujado a mano                                                               | Sí                              | Sí (Nginx/PM2/TLS, token)         | Ligero; menos "pixel art real"; comunidad pequeña |
+| [rolandal/pixel-agents-standalone](https://github.com/rolandal/pixel-agents-standalone)              | 55   | MIT  | Express + WS + React/Canvas                                    | Solo transcripts                                             | Top-down                                                                                      | Sí                              | No                                | Superado: el upstream ya tiene modo web           |
+| [W17ant/Claude-Office](https://github.com/W17ant/Claude-Office)                                      | 197  | MIT  | Express + WS + React, SQLite                                   | Hooks bash → curl                                            | Isométrico                                                                                    | Sí                              | No                                | Descartado: isométrico                            |
+| [deadronos/claude-ville](https://github.com/deadronos/claude-ville)                                  | —    | MIT  | Node + React + Three.js                                        | Transcripts                                                  | Isométrico 3D                                                                                 | Sí                              | Sí                                | Descartado: no es 2D plano                        |
+| [ivanwng97/pixtuoid](https://github.com/ivanwng97/pixtuoid)                                          | 486  | MIT  | Rust / Ratatui                                                 | Hooks + transcripts                                          | Pixel en terminal                                                                             | Parcial                         | No                                | Descartado: es TUI                                |
+| [itsArnavPrasad/pixel-office](https://github.com/itsArnavPrasad/pixel-office)                        | 1    | —    | Mod de Claude Code + VS Code                                   | Mod interno                                                  | Pixel                                                                                         | No                              | No                                | Descartado: sin web                               |
+| [ddx-510/opencode-pixel-office](https://github.com/ddx-510/opencode-pixel-office)                    | 10   | —    | Express + WS + React + PixiJS                                  | Hooks                                                        | Top-down (tileset DonArg)                                                                     | Sí                              | LAN/QR                            | Muy pequeño; licencia sin especificar             |
+| [kevinshen56714/SkyOffice](https://github.com/kevinshen56714/SkyOffice)                              | 1.3k | MIT  | Phaser 3 + React + Colyseus                                    | Ninguno (oficina para humanos)                               | Top-down (assets LimeZu de pago)                                                              | Sí                              | Sí                                | Solo referencia                                   |
+| [phaserjs/template-vite-ts](https://github.com/phaserjs/template-vite-ts)                            | 195  | MIT  | Phaser 4 + Vite + TS                                           | Ninguno                                                      | —                                                                                             | Sí                              | Estático                          | Base si algún día se rehace desde cero            |
 
 Vistos y descartados: WorkAdventure (oficina para humanos, infraestructura enorme) y los
 dashboards sin pixel art (claude-view, agents-observe,
@@ -154,41 +162,49 @@ el salto de red WSL→Windows). Lo mismo al revés.
 
 ## Hoja de ruta
 
-### Fase 0 — Preparación (la haces tú)
+### Fase 0 — Preparación
 
-1. Crear el fork de `pixel-agents-hq/pixel-agents` en tu cuenta (nombre sugerido:
-   `claude-office`). Fork, no copia: conserva historial y permite `git merge upstream/main`.
-2. Dar acceso al fork a Claude Code y abrir una sesión en él.
+1. ✅ Clon con el historial completo de `pixel-agents-hq/pixel-agents` (v1.4.1) y remoto
+   `upstream` configurado, para poder hacer `git merge upstream/main`.
+2. ⏳ Crear en GitHub el repositorio privado y vacío `andresgmg/claude-office`, dar acceso a
+   la app de Claude y subir el historial. Lo hace el dueño: la app no tiene permiso para
+   crear repositorios.
 
 ### Fase 1 — v1 local (en el fork)
 
-1. **Quitar VS Code.** Borrar `adapters/vscode/`, el bundle `dist/extension.js` en
-   `esbuild`, el empaquetado `.vsix`, `@types/vscode`, `@vscode/test-electron`,
-   `engines.vscode` y los e2e de VS Code. Mantener `core/`, `server/`, `webview-ui/`,
-   `scripts/`, los hooks y el modo web. Renombrar el paquete npm para no chocar con
-   `pixel-agents`. Actualizar README y CLAUDE.md.
-2. **Verificar en Windows.** `npm install`, `npm run build`, `node dist/cli.js --port 3100`
-   desde PowerShell y desde WSL. Instalar hooks desde la UI (Settings → Instant Detection)
-   y comprobar que el instalador 1.4.1 ("never overwrite user settings") convive con tu
-   `~/.claude/settings.json`. Probar también el fallback de transcripts.
-3. **Ingesta remota preparada.** Confirmar o añadir que `/api/hooks/claude` acepta el JSON
-   crudo de un hook `type: "http"` con `Authorization: Bearer <token>` (además del script
-   local). Token configurable por variable de entorno; documentar el snippet de
-   `~/.claude/settings.json` con los eventos listados arriba.
-4. **Agent SDK.** Un adaptador mínimo (TypeScript y Python) que registra los hooks del SDK
+1. ✅ **Quitar VS Code.** Hecho con limpieza profunda: `adapters/vscode/`, el bundle
+   `dist/extension.js`, el empaquetado `.vsix`, las dependencias de VS Code, los e2e de
+   VS Code, la adopción de terminales, los mensajes del protocolo exclusivos del IDE, la
+   migración de estado, la CI y el despliegue en Vercel. Se mantienen `core/`, `server/`,
+   `webview-ui/`, `scripts/`, los hooks y el modo web. Todo renombrado a `claude-office`
+   (paquete, comando, `~/.claude-office/`, `claude-office-hook.js`, `CLAUDE_OFFICE_*`).
+   README, CLAUDE.md, CONTRIBUTING, CONTEXT y CHANGELOG actualizados.
+2. ⏳ **Verificar en Windows** (en tu máquina). `npm install`, `npm run build`,
+   `node dist/cli.js --port 3100` desde PowerShell y desde WSL. Instalar hooks desde la UI
+   (Settings → Instant Detection (Hooks)) y comprobar que el instalador ("never overwrite
+   user settings") convive con tu `~/.claude/settings.json`. Probar también el fallback de
+   transcripts. gitleaks es opcional en el pre-commit.
+3. ✅ **Ingesta remota preparada.** `/api/hooks/claude` acepta el JSON crudo de un hook
+   `type: "http"` con `Authorization: Bearer <token>`. Token fijo con `--token` o
+   `CLAUDE_OFFICE_TOKEN` (mínimo 16 caracteres, sin espacios); snippet completo de
+   `~/.claude/settings.json` en [docs/remote-hooks.md](remote-hooks.md).
+4. ⏳ **Agent SDK.** Un adaptador mínimo (TypeScript y Python) que registra los hooks del SDK
    y hace POST al servidor con el mismo payload; ejemplo en `examples/`.
-5. **Funciones v1.** Actividad en vivo y subagentes/equipos ya existen. Añadir: etiqueta
-   de proyecto (derivada de `cwd`) y rama git (el servidor ejecuta `git rev-parse
-   --abbrev-ref HEAD` en `cwd` para agentes locales); el uso de contexto ya se calcula.
-   Panel de detalle al hacer clic: última herramienta e input (desde hooks) y último
-   mensaje (desde el transcript, solo local).
-6. **Pruebas.** Mantener los tests Vitest de `server/` y `webview-ui/`; adaptar el shard
-   e2e standalone de Playwright; eliminar el de VS Code.
+5. ⏳ **Funciones v1.** Actividad en vivo, subagentes/equipos y uso de contexto ya existen.
+   Añadir: etiqueta de proyecto (derivada de `cwd`) y rama git (el servidor ejecuta
+   `git rev-parse --abbrev-ref HEAD` en `cwd` para agentes locales). Panel de detalle al
+   hacer clic: última herramienta e input (desde hooks) y último mensaje (desde el
+   transcript, solo local).
+6. ✅ **Pruebas.** Tests Vitest de `server/` (28 archivos) y `webview-ui/` (10) adaptados;
+   e2e de Playwright reducido a los 10 tests del servidor web; e2e de VS Code eliminado.
+7. ⏳ **Limpieza pendiente.** Quitar de extremo a extremo la función "headless as ghosts"
+   (ajuste, mensaje `setGhostHeadlessAgents`, alfa del renderer y sus tests), hoy
+   desactivada en origen.
 
 ### Fase 2 — Subdominio
 
 1. `Dockerfile` multi-stage (Node 20) y `docker-compose.yml` con Caddy (TLS automático)
-   delante del servidor. Volumen para `~/.pixel-agents/` (layout, estado, config).
+   delante del servidor. Volumen para `~/.claude-office/` (layout, estado, config).
 2. Acceso del visor: login simple con contraseña o Cloudflare Access/Tailscale; eventos con
    Bearer token por origen (PC, cloud, SDK).
 3. Hooks remotos: en tu PC, hooks `http` en `~/.claude/settings.json` apuntando al

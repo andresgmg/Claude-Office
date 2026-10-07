@@ -1,5 +1,35 @@
 # Changelog
 
+Claude Office is a fork of [pixel-agents](https://github.com/pixel-agents-hq/pixel-agents). The entries from v1.4.1 downwards are the upstream history, kept verbatim; the fork's own history starts at 0.1.0.
+
+## 0.1.0 (unreleased)
+
+Web-only fork of pixel-agents v1.4.1, renamed to Claude Office and trimmed to what the browser office needs. Phase 1 of the plan in `docs/PLAN.md`: run locally on the owner's machine (Windows or WSL) and observe Claude Code sessions.
+
+### Changed
+
+- **Web only.** The VS Code extension is gone, together with everything that existed only for it: terminal launch and adoption, the IDE-only protocol messages (`agentSelected`, `workspaceFolders`, `launchAgent`, `focusAgent`, `exportLayout`, `importLayout`, `openSessionsFolder`), the `vscode` config namespace, the legacy state migration and the embedded-mode WebSocket gate. `node dist/cli.js` (or `npm start`) is the only way to run the office; layout export and import happen in the browser.
+- **Renamed end to end.** Package and command `claude-office`, state directory `~/.claude-office/`, hook script `claude-office-hook.js`, environment variables `CLAUDE_OFFICE_*`, ESLint rule prefix `claude-office/`, log prefix `[Claude Office]`.
+- **Fixed server token.** `--token <value>` or `CLAUDE_OFFICE_TOKEN` pins the bearer token (at least 16 characters, no whitespace) so a native Claude Code `type: "http"` hook can be configured once; without it the token is still random per start. A second start that finds a running server keeps that server's token and says so.
+- **Hook identity.** The installer recognizes only `/.claude-office/hooks/claude-office-hook.js`; legacy `pixel-agents` hook names are no longer matched, so stale upstream entries are left for the user to remove.
+- **External asset directories** take a typed absolute path (`addExternalAssetDirectory` requires `path`).
+- **Pre-commit.** gitleaks is optional: when it is missing the secret scan is skipped with a warning instead of blocking the commit.
+- **Headless-as-ghost cue** disabled at the source (every agent here is adopted, so the cue carried no information); its setting and message remain until their removal.
+
+### Removed
+
+- GitHub workflows, issue templates and funding file; Vercel staging of test reports; VSIX packaging and verifier; the CI-only npm publish script; `.env.example`; the VS Code e2e suite (81 tests). The 10 standalone e2e tests remain.
+
+### Added
+
+- `docs/PLAN.md`: research, decisions taken with the owner and the phase 1 / phase 2 roadmap (Spanish).
+- `docs/remote-hooks.md`: configuring Claude Code `http` hooks against the fixed token, with the full `settings.json` snippet for the 12 installed events (Spanish).
+- Spanish `README.md` for local use on Windows and WSL.
+
+### Upgrading from pixel-agents
+
+Nothing is migrated from `~/.pixel-agents/`. To keep an office layout, copy `~/.pixel-agents/layout.json` to `~/.claude-office/layout.json`. Remove the old `pixel-agents` hook entries from `~/.claude/settings.json` (or uninstall them from pixel-agents first); this installer does not recognize them.
+
 ## v1.4.1
 
 ### Features

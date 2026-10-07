@@ -1,11 +1,11 @@
 # External Asset Directories
 
-Claude Office supports loading furniture assets from directories outside the extension. This lets you use custom or third-party pixel art asset packs alongside the built-in furniture.
+Claude Office supports loading furniture assets from directories outside the bundled `assets/` folder. This lets you use custom or third-party pixel art asset packs alongside the built-in furniture.
 
 ## Adding an External Directory
 
-1. Open the Claude Office panel and click **Settings**
-2. Click **Add Asset Directory** and pick a folder
+1. Open the office in the browser and click **Settings**
+2. Under **Add Asset Directory**, type the absolute path of the directory (the browser has no native folder picker; on Windows use forward slashes or escaped backslashes) and confirm
 3. Your custom assets will appear in the furniture palette immediately, merged with the built-ins
 4. The directory path is saved to `~/.claude-office/config.json` and reloaded automatically on restart
 

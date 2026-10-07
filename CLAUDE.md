@@ -1,12 +1,12 @@
 # Claude Office — Compressed Reference
 
-Pixel art office where AI agents (Claude Code terminals today, any tool tomorrow) become animated characters. Ships as a **VS Code extension** and an **`npx claude-office` standalone CLI** from the same source tree.
+Pixel art office where Claude agents become animated characters: Claude Code sessions today; Claude Code cloud sessions and Agent SDK agents on the roadmap. Web-only fork of [pixel-agents](https://github.com/pixel-agents-hq/pixel-agents) v1.4.1: one Fastify process serves the browser SPA, the WebSocket protocol and the hook ingress. Run it with `node dist/cli.js` (or `npm start`). There is no editor extension, and the office never launches or attaches terminals — it only observes.
 
-`CONTEXT.md` is the canonical glossary — read it for what terms like Agent, Sub-agent, Teammate, Lead, Adopt, or Headless agent mean here, and use its vocabulary in code, comments, and docs.
+`CONTEXT.md` is the canonical glossary — read it for what terms like Agent, Sub-agent, Teammate, Lead, Adopt, or Headless agent mean here, and use its vocabulary in code, comments, and docs. `docs/PLAN.md` (Spanish) holds the roadmap and the decisions taken with the owner; `docs/remote-hooks.md` (Spanish) documents the fixed-token `http` hook setup.
 
 ## Architecture
 
-Strict layering: `core/` depends on nothing; `server/` depends only on `core/`; `webview-ui/` depends only on `core/`; `adapters/vscode/` depends on `core/` and `server/`. The standalone CLI never imports `adapters/vscode/` and vice versa.
+Strict layering: `core/` depends on nothing; `server/` depends only on `core/`; `webview-ui/` depends only on `core/`. `server/src/cli.ts` is the only composition root.
 
 ```
 core/                                Protocol + interface definitions (zero runtime side effects)
@@ -18,71 +18,70 @@ core/                                Protocol + interface definitions (zero runt
     teamProvider.ts                  Optional TeamProvider (semantic queries for Lead + Teammates)
     transport.ts                     MessageTransport interface, TransportState
     adapter.ts                       StateAdapter, AssetCache, PersistedAgent, AgentSeat
-    terminalAdapter.ts               TerminalAdapter (editor-driven terminal management)
+    paletteUtils.ts                  Character palette helpers shared by server + webview
     normalizeProjectPath.ts
     constants.ts
+    assets/                          Asset manifest types
 
-server/                              Lifecycle runtime + Fastify HTTP/WS server
+server/                              Lifecycle runtime + Fastify HTTP/WS server + CLI
   src/
     providers/hook/claude/           Reference HookProvider — only place that knows Claude specifics
-      claude.ts                      normalizeHookEvent for 11 Claude events, formatToolStatus, file fallback
+      claude.ts                      normalizeHookEvent for the installed Claude events, formatToolStatus, file fallback
       claudeTeamProvider.ts          TeamProvider: reads ~/.claude/teams/<name>/config.json
-      claudeHookInstaller.ts         Consent-gated install/uninstall in ~/.claude/settings.json (abort on unparseable file or non-array hooks.<Event>; one-time .claude-office.backup, exclusive-create, no backup ⇒ no write — but skipped when the replaced content is entirely our own install's output, since backing up our own file masquerades as the user's original (`settingsHoldOnlyOurHooks`, compared against makeHookEntry — the WRITER — so a field added to what we write can't silently revive the bug; only `command`/`timeout` may differ, they vary across installs); every write failure THROWS; mode preserved, 0600 on create; re-read verify immediately before rename + retry; hook identity = `/.claude-office/hooks/claude-office-hook.js` suffix anchored at both ends of the command's first token, case-insensitive; `areHooksInstalled` = ANY of our commands on ANY event)
+      claudeHookInstaller.ts         Consent-gated install/uninstall in ~/.claude/settings.json (abort on unparseable file or non-array hooks.<Event>; one-time `.claude-office.backup`, exclusive-create, no backup ⇒ no write — but skipped when the replaced content is entirely our own install's output, since backing up our own file masquerades as the user's original (`settingsHoldOnlyOurHooks`, compared against makeHookEntry — the WRITER — so a field added to what we write can't silently revive the bug; only `command`/`timeout` may differ, they vary across installs); every write failure THROWS; mode preserved, 0600 on create; re-read verify immediately before rename + retry; hook identity = `/.claude-office/hooks/claude-office-hook.js` suffix anchored at both ends of the command's first token, case-insensitive; `areHooksInstalled` = ANY of our commands on ANY event)
       consentCopy.ts                 Claude's first-run consent disclosure text (scope/data/undo), served through consentDisclosure()
-      constants.ts                   Claude hook event names, script path
-      hooks/claude-office-hook.ts           Hook script (CJS+shebang, bundled to dist/hooks/claude-office-hook.js)
+      constants.ts                   CLAUDE_HOOK_EVENTS (12 installed events), script path, backup suffix
+      hooks/claude-office-hook.ts    Hook script (CJS+shebang, bundled to dist/hooks/claude-office-hook.js)
     providers/hook/consentGate.ts    Provider-agnostic consent POLICY: when to ask (hooksConsentRequest per provider) and what an answer means (consentActionFor(choice, {installed, consent}) — see docs/adr/0001)
-    providers/hook/consentExecutor.ts Provider-agnostic consent EXECUTION: applyConsentChoice(providerId, choice, ConsentEffects) runs the six actions in one order for both surfaces, and SERIALIZES answers per process across ALL providers
+    providers/hook/consentExecutor.ts Provider-agnostic consent EXECUTION: applyConsentChoice(providerId, choice, ConsentEffects) runs the six actions in one order and SERIALIZES answers per process across ALL providers
     providers/index.ts               Provider registry (claudeProvider + the hookProviders list the consent gate loops over)
-    agentRuntime.ts                  Lifecycle core: timers, scanners, HookEventHandler, SessionRouter, DismissalTracker
+    agentRuntime.ts                  Lifecycle core: timers, scanners, HookEventHandler, SessionRouter, DismissalTracker, SubagentWatch
     agentStateStore.ts               EventEmitter-backed single source of truth (typed mutations + events)
     sessionRouter.ts                 session_id → agent_id mapping, event buffering, pending external sessions
     dismissalTracker.ts              Unified dismissal state (replaces four legacy globals)
     hookEventHandler.ts              Dispatches normalized AgentEvent into runtime
-    httpServer.ts                    Fastify: POST /api/hooks/:providerId, GET /api/health, GET /ws, SPA (standalone)
-    clientMessageHandler.ts          Single dispatch point for ClientMessage from webview
-    server.ts                        Top-level composition
-    cli.ts                           npx claude-office entry (npm bin)
-    fileStateAdapter.ts              Namespaced ~/.claude-office/ persistence
-    configPersistence.ts             { vscode, standalone, externalAssetDirectories, hooksConsent: {providerId: granted|declined}, hooksEnabled: {providerId: boolean} }
+    subagentWatch.ts                 Shadow store watching unnamed background spawns' transcripts
+    agentActivityResend.ts           Re-sends live tool state to a client that connects mid-work
+    agentDiagnostics.ts              Debug View payload (transcript path, offsets, latest records)
+    contextUsage.ts                  Context gauge: snapshot from message.usage against the provider's window
+    paletteAssigner.ts               Server-side palette + hue assignment at agent creation
+    httpServer.ts                    Fastify: POST /api/hooks/:providerId, GET /api/health, GET /ws, SPA
+    clientMessageHandler.ts          Single dispatch point for ClientMessage from the browser
+    server.ts                        Top-level composition (reuse-or-start, registry entry, token)
+    serverConfig.ts                  ~/.claude-office/server.json + servers/ registry read/write
+    cli.ts                           `claude-office` entry: parseArgs (--port/--host/--token/--help), validateToken
+    fileStateAdapter.ts              Namespaced ~/.claude-office/<namespace>-state.json persistence
+    configPersistence.ts             { standalone, externalAssetDirectories, hooksConsent: {providerId: granted|declined}, hooksEnabled: {providerId: boolean} }
     layoutPersistence.ts             ~/.claude-office/layout.json with atomic tmp+rename
-    fileWatcher.ts                   Hybrid fs.watch + 500ms polling, JSONL line buffering, /clear detection
+    fileWatcher.ts                   Hybrid fs.watch + 500ms polling, JSONL line buffering, external-session scanning
     transcriptParser.ts              JSONL parsing for heuristic / file-fallback mode
+    assetLoader.ts / assetReload.ts  PNG → SpriteData via pngjs; external directory reloads
     timerManager.ts                  Waiting / permission timers
-    assetLoader.ts                   PNG → SpriteData via pngjs
     teamUtils.ts                     isInlineTeammateOf, getInlineTeammates, hasInlineTeammates
+    pathKey.ts                       Case/separator-insensitive path keys (Windows-safe)
     types.ts                         ServerAgentState
-    constants.ts                     All timing/scanning constants
+    constants.ts                     All timing/scanning constants, TOKEN_ENV_VAR, MIN_AUTH_TOKEN_LENGTH
   __tests__/                         28 Vitest files
   manual-hook-events.http            Manual hook testing helper (REST-Client format)
-
-adapters/vscode/                     VS Code surface — composes core + server
-  extension.ts                       activate() / deactivate()
-  ClaudeOfficeViewProvider.ts         WebviewViewProvider, thin bridge to AgentRuntime
-  agentManager.ts                    Terminal lifecycle (claude --session-id <uuid>), restore, persist
-  vscodeTerminalAdapter.ts           TerminalAdapter implementation
-  uninstall.ts                       vscode:uninstall hook — removes hook entries + factory-resets hooks config after extension removal
-  migrateVsCodeState.ts              One-time legacy state migration (verify-before-clear)
-  constants.ts                       VS Code IDs, command names, key names
 
 webview-ui/                          React 19 + Canvas UI (depends only on core/)
   src/
     transport/
-      index.ts                       createTransport() — single runtime branching point
-      postMessageTransport.ts        VS Code mode (acquireVsCodeApi)
-      webSocketTransport.ts          Standalone mode (exponential backoff, send queue)
+      index.ts                       createTransport() — builds the WebSocketTransport, forwards ?token=
+      webSocketTransport.ts          Exponential backoff, send queue
       types.ts                       Re-exports MessageTransport from core
-    runtime.ts                       isBrowserRuntime detection
-    browserMock.ts                   Standalone-browser asset fetch + message injection
+    runtime.ts                       isE2E flag (Playwright harness only)
+    browserMock.ts                   Vite dev server: asset fetch + message injection without a server
     testHooks.ts                     window globals exposed for e2e (officeState, helpers)
     main.tsx                         React entry (StrictMode + createRoot)
     App.tsx                          Composition root (hooks + components + EditActionBar)
     constants.ts                     Webview magic numbers/strings
     notificationSound.ts             Web Audio API chime
-    changelogData.ts                 Changelog modal content
-    components/                      React UI (toolbars, modals, settings)
-      BottomToolbar.tsx, ZoomControls.tsx, SettingsModal.tsx, InfoModal.tsx,
-      Tooltip.tsx, DebugView.tsx, ui/Button.tsx, ...
+    changelogData.ts                 Changelog modal content (fork entries only)
+    components/                      React UI
+      BottomToolbar.tsx (Layout + Settings), SettingsModal.tsx, IntroBubble.tsx, ChangelogModal.tsx,
+      ConnectionIndicator.tsx, DebugView.tsx, EditActionBar.tsx, VersionIndicator.tsx,
+      VisualColorPicker.tsx, ZoomControls.tsx, Tooltip.tsx, MigrationNotice.tsx, ui/Button.tsx
     hooks/
       useExtensionMessages.ts        Message handler — translates ServerMessage into OfficeState mutations
       useEditorActions.ts            Editor state + callbacks
@@ -91,119 +90,87 @@ webview-ui/                          React 19 + Canvas UI (depends only on core/
       useIntroTour.ts                Wires the reducer to React + transport (snapshot, verdict, choices)
     office/
       types.ts                       OfficeLayout, Character, etc. + re-exports constants
-      toolUtils.ts                   STATUS_TO_TOOL mapping, extractToolName (DOM-free; defaultZoom lives in useEditorActions)
-      projection.ts                  World→screen math shared by renderer + DOM overlays (mapOffset, overlayProjection)
+      toolUtils.ts                   STATUS_TO_TOOL mapping, extractToolName (DOM-free)
+      projection.ts                  World→screen math shared by renderer + DOM overlays
       colorize.ts                    Colorize (grayscale→HSL) + Adjust (HSL shift)
-      floorTiles.ts                  Floor sprite storage + colorized cache
-      wallTiles.ts                   Wall auto-tile: 16 bitmask sprites
-      sprites/
-        spriteData.ts                Pixel data (characters, furniture, tiles, bubbles)
-        spriteCache.ts               SpriteData → offscreen canvas, per-zoom WeakMap
-      editor/
-        editorActions.ts             Pure layout ops
-        editorState.ts               Imperative state (tools, ghost, selection, undo/redo, drag)
-        EditorToolbar.tsx
-      layout/
-        furnitureCatalog.ts          Dynamic catalog from loaded assets
-        layoutSerializer.ts          OfficeLayout ↔ runtime (tileMap, furniture, seats)
-        tileMap.ts                   Walkability, BFS pathfinding
-      engine/
-        characters.ts                Character FSM (idle/walk/type) + wander AI
-        officeState.ts               Game world (layout, characters, seats, selection, subagents, consent greeter)
-        gameLoop.ts                  rAF loop with delta-time cap (0.1 s)
-        renderer.ts                  Canvas: tiles, z-sorted entities, overlays, edit UI
-        matrixEffect.ts              Spawn/despawn digital rain (drawing only)
-        matrixEffectState.ts         Effect state: startMatrixEffect/advanceMatrixEffect (DOM-free)
-      components/
-        OfficeCanvas.tsx             Canvas, resize, DPR, mouse hit-testing, drag-to-move
-        ToolOverlay.tsx              Activity label above hovered/selected character
+      floorTiles.ts / wallTiles.ts   Floor sprite storage + colorized cache; wall auto-tile bitmask
+      sprites/                       spriteData.ts, spriteCache.ts (per-zoom WeakMap)
+      editor/                        editorActions.ts (pure layout ops), editorState.ts, EditorToolbar.tsx
+      layout/                        furnitureCatalog.ts, layoutSerializer.ts, tileMap.ts (BFS pathfinding)
+      engine/                        characters.ts (FSM + wander), officeState.ts, gameLoop.ts, renderer.ts, matrixEffect*.ts
+      components/                    OfficeCanvas.tsx (canvas, DPR, hit-testing), ToolOverlay.tsx (activity label)
+  test/                              10 Vitest files (Node runner)
 
-e2e/                                 Playwright suite (real VS Code + mock-claude scenarios)
-  playwright.config.ts
-  global-setup.ts
+e2e/                                 Playwright suite against the real CLI (standalone only)
+  playwright.config.ts, run-config.ts, global-setup.ts
   fixtures/
-    claude-office.ts                  VS Code fixture: launch Electron, wait for panel
-    standalone.ts                    Standalone CLI fixture: spawn server + browser page
+    standalone.ts                    Spawns dist/cli.js with an isolated HOME + opens the printed URL
     mock-claude, mock-claude.cmd     Bash + cmd wrapper invoked instead of real claude
     mock-claude-runner.cjs           Scenario runner: appendJsonl, emitHook, holdOpen
-  helpers/
-    launch.ts                        Electron app + isolated HOME/workspace
-    mock-claude.ts                   claudeScenario() builder
-    office.ts                        Overlay locators + assertions
-    webview.ts                       Settings/modal helpers
-    hooks.ts                         Hook server lifecycle helpers
-    standalone.ts                    Standalone server + WebSocket browser helpers
-    internal-agent.ts                spawnInternalAgentAndWait
-    lifecycle.ts                     Reusable scenario fragments
-    team.ts                          Team config seeding + teammate helpers
-    allure-labels.ts                 @area:<tag> → Allure epic
-  tests/
-    claude/hooks-on/                 basic.spec.ts, lifecycle.spec.ts, teams.spec.ts
-    claude/hooks-off/                lifecycle.spec.ts, matrix.spec.ts
-    standalone/                      hooks.spec.ts
+    tail-follow.cjs                  Follows a file for scenario timing
+  helpers/                           standalone.ts, hooks.ts, intro.ts, office.ts, webview.ts, editor.ts, layout-seed.ts, allure-labels.ts
+  tests/standalone/                  hooks.spec.ts, ui.spec.ts (10 tests, @area:standalone)
   README.md                          Auto-generated test inventory (regen via npm run e2e:inventory)
 
 scripts/
-  generate-messages.ts               AsyncAPI → core/src/messages.ts via Modelina (with CI drift check)
+  generate-messages.ts               AsyncAPI → core/src/messages.ts via Modelina
+  validate-asyncapi.mjs              AsyncAPI spec validation
   run-e2e.mjs                        Playwright wrapper (run-id namespacing, video attach flags)
-  generate-e2e-inventory.mjs         Splices test list into e2e/README.md (CI drift check)
+  generate-e2e-inventory.mjs         Splices test list into e2e/README.md
   build-allure-report.mjs            Combine e2e+server+webview Allure results
-  assemble-vercel-output.mjs         Stage /reports/allure/ for Vercel deploy
-  asset-manager.html                 Unified furniture editor (positions + metadata)
+  npm-package-contract.mjs (+ .test) Tarball shape contract (name, repository, required files)
+  verify-npm-package.mjs             Packs, installs the tarball in a temp project, smoke-tests the CLI
+  asset-manager.html                 Furniture manifest editor (positions + metadata)
   jsonl-viewer.html                  Standalone JSONL transcript inspector
   wall-tile-editor.html              Wall sprite editor
 
 core/                                npm workspace (no separate package; root manages)
-server/                              npm workspace
+server/                              npm workspace (`claude-office-server`, private)
 webview-ui/                          npm workspace
 ```
 
 ## Distribution
 
-Two artifacts from one source tree:
-
-- **VS Code extension** (`.vsix`) — `pablodelucca.claude-office` on VS Code Marketplace and Open VSX. Bundles VS Code adapter + webview SPA + assets + hook scripts.
-- **npm package** (`claude-office`) — `npx claude-office [--port 3100]` runs the Fastify server and serves the SPA on the same port. Bundles CLI + webview SPA + assets + hook scripts + `core/asyncapi.yaml` (so third-party clients can regenerate from it).
-
-`package.json:files` allowlist controls the npm tarball: `dist/cli.js{,.map}`, `dist/webview/`, `dist/assets/`, `dist/hooks/`, `core/asyncapi.yaml`, `icon.png`. `dist/extension.js` is intentionally excluded since the VS Code entry ships through the `.vsix`.
+One artifact, built from source. `npm run build` produces `dist/cli.js` (server + CLI, externals `fastify`/`@fastify/*` resolved from `node_modules`), `dist/hooks/claude-office-hook.js`, `dist/assets/` and `dist/webview/`; `node dist/cli.js` runs the server and serves the SPA on the same port. The root package is `private: true` and is not published. `package.json:files` and `scripts/npm-package-contract.mjs` still pin the tarball shape (`npm run test:package-contract`, `npm run verify:npm-package`) so `npm pack` keeps working if distribution ever changes.
 
 ## Communication Flow
 
 Hub-and-spoke. The server is the single aggregation point for all agent activity, regardless of source.
 
 ```
-Hook scripts ─POST /api/hooks/:providerId─┐
-                                          ├─→ HookProvider.normalizeHookEvent()
-JSONL transcripts ─FileWatcher─→ TranscriptParser ┤
-                                                   ↓
-                                              AgentEvent (canonical)
-                                                   ↓
-                                              AgentRuntime (dispatch on .kind)
-                                                   ↓
-                                           AgentStateStore (mutate)
-                                                   ↓
-                                              StoreEvents → broadcast
-                                                   ↓
-                          PostMessageTransport ──┤├── WebSocketTransport
-                                 (VS Code)      (standalone browser)
+Hook script / native http hook ─POST /api/hooks/:providerId─┐
+  (Authorization: Bearer <token>)                           ├─→ HookProvider.normalizeHookEvent()
+JSONL transcripts ─FileWatcher─→ TranscriptParser ──────────┤
+                                                            ↓
+                                                       AgentEvent (canonical)
+                                                            ↓
+                                                       AgentRuntime (dispatch on .kind)
+                                                            ↓
+                                                    AgentStateStore (mutate)
+                                                            ↓
+                                                       StoreEvents → broadcast
+                                                            ↓
+                                                   WebSocketTransport (/ws) → browser SPA
 ```
 
-The VS Code adapter wires `PostMessageTransport` against `acquireVsCodeApi()`. The standalone CLI exposes the same protocol over WebSocket at `/ws` with the webview SPA served from the same Fastify instance. **The protocol shape is identical; only the wire differs.**
+`POST /api/hooks/claude` accepts the raw JSON Claude Code hands its hooks. The bundled hook script and a native `type: "http"` hook (see `docs/remote-hooks.md`) post the same payload, so remote machines, cloud sessions and Agent SDK agents need no new ingress — only a stable token.
 
-Adding a new CLI integration is one subdirectory under `server/src/providers/hook/<id>/`: provider, optional `TeamProvider`, installer, hook scripts. Zero changes to the runtime, the UI, or any existing provider.
+The fork is Claude-only by decision. The provider seam (`server/src/providers/hook/<id>/`) still exists because the runtime was built around it, but new providers are out of scope; the Agent SDK adapter planned for phase 1 feeds the Claude provider instead of adding one.
 
 ## AsyncAPI Protocol Contract
 
 `core/asyncapi.yaml` is the contract. Pinned to **3.0.0** because `@asyncapi/modelina@5.10.1` declares `supportedVersions: ['3.0.0']` only; bumping to 3.1.0 produces `export type Root = any`. Revisit when Modelina ships 3.1.0 support.
 
-- **27 ServerMessage variants** (server → client): agent lifecycle, agent activity, sub-agent activity, team + context usage, assets, settings + workspace, diagnostics.
-- **18 ClientMessage variants** (client → server): lifecycle (`webviewReady`, `launchAgent`, `focusAgent`, `closeAgent`), layout (`saveAgentSeats`, `saveLayout`, `exportLayout`, `importLayout`), settings (`setSoundEnabled`, `setHooksEnabled`, `setWatchAllSessions`, `setAlwaysShowLabels`, `setHooksInfoShown`, `setLastSeenVersion`), discovery + assets, diagnostics.
+- **29 ServerMessage variants** (server → client): `providerCapabilities`, agent lifecycle (`agentCreated`, `agentClosed`, `existingAgents`, `agentStatus`), agent activity (`agentToolStart/Done/sClear`, `agentToolPermission/Clear`), sub-agent activity (`subagentToolStart/Done`, `subagentClear`, `subagentToolPermission`), `agentTeamInfo`, `agentContextUsage`, assets (`layoutLoaded`, `furnitureAssetsLoaded`, `characterSpritesLoaded`, `petSpritesLoaded`, `floorTilesLoaded`, `wallTilesLoaded`, `carpetTilesLoaded`, `externalAssetDirectoriesUpdated`), settings (`settingsLoaded`, `hooksStatus`, `hooksConsentRequest`, `areaMappingsLoaded`), `agentDiagnostics`.
+- **17 ClientMessage variants** (client → server): `webviewReady`, `closeAgent`, layout (`saveAgentSeats`, `saveLayout`, `saveAreaMappings`, `setShowAreas`), settings (`setSoundEnabled`, `setHooksEnabled`, `hooksConsentResponse`, `setWatchAllSessions`, `setAlwaysShowLabels`, `setGhostHeadlessAgents`, `setHooksInfoShown`, `setLastSeenVersion`), assets (`addExternalAssetDirectory` with a required `path`, `removeExternalAssetDirectory`), `requestDiagnostics`.
+
+The IDE-only messages of the upstream protocol (`agentSelected`, `workspaceFolders`, `launchAgent`, `focusAgent`, `exportLayout`, `importLayout`, `openSessionsFolder`) were removed; layout export/import happens in the browser.
 
 Both unions use `oneOf` with `discriminator: type`. Every concrete message sets `additionalProperties: false`.
 
-`core/src/messages.ts` is generated by `scripts/generate-messages.ts` invoking `@asyncapi/modelina` with custom constraints (`propertyKey` preserves `type`/`status` field names; `constant` inlines `const` literals). The file has an auto-generation banner. **CI runs `asyncapi:generate` then `git diff --exit-code core/src/messages.ts` — any non-empty diff fails the build.**
+`core/src/messages.ts` is generated by `scripts/generate-messages.ts` invoking `@asyncapi/modelina` with custom constraints (`propertyKey` preserves `type`/`status` field names; `constant` inlines `const` literals). The file has an auto-generation banner. **There is no CI**: `npm run build` runs `asyncapi:generate` first, so after editing the contract run the build and commit the regenerated file together with the YAML.
 
-## Transport Abstraction
+## Transport
 
 ```typescript
 export interface MessageTransport {
@@ -217,23 +184,21 @@ export interface MessageTransport {
 export type TransportState = 'connecting' | 'connected' | 'reconnecting' | 'disconnected';
 ```
 
-`PostMessageTransport` reports `connected` for its entire lifetime. `WebSocketTransport` reconnects with exponential backoff (250 ms, 500 ms, 1 s, 2 s, 4 s, capped) and queues sends while disconnected.
-
-`createTransport()` in `webview-ui/src/transport/index.ts` is the **only branching point** in the UI codebase. Everything downstream uses the `MessageTransport` interface and never knows which transport is active.
+`WebSocketTransport` is the only implementation: it reconnects with exponential backoff (250 ms, 500 ms, 1 s, 2 s, 4 s, capped) and queues sends while disconnected. `createTransport()` in `webview-ui/src/transport/index.ts` builds it and forwards the page's `?token=` onto the `/ws` handshake. Everything downstream uses the `MessageTransport` interface; the abstraction stays so a second wire (phase 2 relay) can be added without touching the UI.
 
 ## Provider Abstraction
 
-`HookProvider` (`core/src/provider.ts`) is the integration boundary. Today only Claude Code is implemented; the Claude provider supports every transcript/hook format up to **Claude Code v2.1.220** (current as of 2026-07-30 — Task-era `agent_progress` records, explicit and implicit teams, background-by-default Agent spawns, sidecar-backed background agents). Newer CLI releases may add formats that need provider updates. The interface:
+`HookProvider` (`core/src/provider.ts`) is the integration boundary. Only Claude Code is implemented; the Claude provider supports every transcript/hook format up to **Claude Code v2.1.220** (current as of 2026-07-30 — Task-era `agent_progress` records, explicit and implicit teams, background-by-default Agent spawns, sidecar-backed background agents). Newer CLI releases may add formats that need provider updates. The interface:
 
 - **Required**: `normalizeHookEvent(raw)` → `{ sessionId, event: AgentEvent } | null`; `installHooks` / `uninstallHooks` / `areHooksInstalled`; `formatToolStatus`; `permissionExemptTools`, `subagentToolNames`, `readingTools` sets.
-- **Optional file fallback**: `getSessionDirs(workspace)`, `getAllSessionRoots()`, `sessionFilePattern`, `parseTranscriptLine(line)`, `buildLaunchCommand(sessionId, cwd, opts)`. Used when hooks aren't installed.
+- **Optional file fallback**: `getSessionDirs(workspace)`, `getAllSessionRoots()`, `sessionFilePattern`, `parseTranscriptLine(line)`, `contextWindowForModel(model)`. Used when hooks aren't installed. `buildLaunchCommand` remains in the interface for upstream parity but nothing calls it — the office never launches agents.
 - **Optional team extension**: `team?: TeamProvider` for Lead + Teammates support.
 
 `AgentEvent.kind` values: `toolStart`, `toolEnd`, `turnEnd`, `subagentStart`, `subagentEnd`, `subagentTurnEnd`, `progress`, `permissionRequest`, `sessionStart`, `sessionEnd`. The runtime dispatches on `kind`, never on CLI-specific tool names.
 
 ### TeamProvider (Lead + Teammates)
 
-Optional extension for CLIs that support team workflows (Claude Agent Teams today). Semantic queries (`discoverTeammates`, `getTeamMembers`, `getTeamMetadataForSession`, `extractTeammateNameFromEvent`, `isTeammateSpawnCall`) — providers choose their own storage strategy.
+Optional extension for team workflows (Claude Agent Teams). Semantic queries (`discoverTeammates`, `getTeamMembers`, `getTeamMetadataForSession`, `extractTeammateNameFromEvent`, `isTeammateSpawnCall`) — providers choose their own storage strategy.
 
 Four teammate modes:
 
@@ -257,85 +222,79 @@ The gate for both: the sidecar `toolUseId` must match a LIVE entry in the lead's
 
 Teammate dismissal is driven by team config polling (`getTeamMembers(teamName)` is authoritative; members with `isActive: false` are treated as departed), by the teammate's own `sessionEnd` (own-session teammates), and by `sessionEnd` on the lead.
 
-**Subtle gate (the one that bit us recently)**: in `webview-ui/src/hooks/useExtensionMessages.ts`, `agentToolStart` with `runInBackground=true` only creates a Subtask sub-character when the **parent has no `teamName`**. With a team, `onTeammateDetected` creates the teammate instead (and the gate prevents a ghost sub-agent). Without a team, the teammate path never fires and the basic Subtask sub-character is the only visible representation. The gate's blind spot — a TEAMED lead's unnamed background spawn — is covered by `subagentToolStart` creating the sub-character lazily when it's missing (`addSubagent` is idempotent); the same lazy path recreates subs after a panel reload.
+**Subtle gate (the one that bit upstream)**: in `webview-ui/src/hooks/useExtensionMessages.ts`, `agentToolStart` with `runInBackground=true` only creates a Subtask sub-character when the **parent has no `teamName`**. With a team, `onTeammateDetected` creates the teammate instead (and the gate prevents a ghost sub-agent). Without a team, the teammate path never fires and the basic Subtask sub-character is the only visible representation. The gate's blind spot — a TEAMED lead's unnamed background spawn — is covered by `subagentToolStart` creating the sub-character lazily when it's missing (`addSubagent` is idempotent); the same lazy path recreates subs after a page reload.
 
 ## Server Runtime
 
-`AgentRuntime` (`server/src/agentRuntime.ts`) is the shared lifecycle core. Both surfaces (`adapters/vscode/ClaudeOfficeViewProvider.ts` and `server/src/cli.ts`) compose the same runtime; only the `StateAdapter` namespace, `MessageTransport`, and `TerminalAdapter` differ.
+`AgentRuntime` (`server/src/agentRuntime.ts`) is the lifecycle core; `cli.ts` composes exactly one.
 
 ```typescript
 export class AgentRuntime {
-  constructor(opts: {
-    store: AgentStateStore;
-    providerRegistry: ProviderRegistry;
-    layoutPersistence: LayoutPersistence;
-    assetCache: AssetCache;
-    config: Pick<AdapterSettings, 'hooksEnabled' | 'watchAllSessions'>;
-    terminalAdapter?: TerminalAdapter;
-    callbacks: RuntimeLifecycleCallbacks;
-  });
+  constructor(store: AgentStateStore, provider: HookProvider);
   registerAgent / unregisterAgent / removeAgent / removeTeammate / removeTeammates
   restoreExternalAgents / handleHookEvent
-  startProjectScan / startExternalScanning / startStaleCheck
+  startProjectScan(projectDir) / startExternalScanning(projectDir) / startStaleCheck()
   dispose();
 }
 ```
 
-Owns timer Maps (waiting, permission, text-idle, stale), scanners (project-dir 1 s, external 3 s, stale 30 s), `HookEventHandler`, `SessionRouter`, `DismissalTracker`. Scanners are skipped entirely while hooks are flowing (`hookDelivered` is set on every agent). `RuntimeLifecycleCallbacks` is the only seam between runtime and host.
+The constructor wires the module-level singletons (`DismissalTracker`, hook provider for `fileWatcher`, `SubagentWatch`, the team provider, removal callbacks). It owns timer Maps (waiting, permission, text-idle, stale), scanners (project-dir 1 s, external 3 s, stale 30 s — `PROJECT_SCAN_INTERVAL_MS`, `EXTERNAL_SCAN_INTERVAL_MS`, `EXTERNAL_STALE_CHECK_INTERVAL_MS`), `HookEventHandler` and `SessionRouter`. Scanners are skipped entirely while hooks are flowing (`hookDelivered` is set on every agent). The project dir is `process.cwd()` at CLI start; **Watch All Sessions** widens the external scanner to every session root.
 
 ### AgentStateStore
 
-EventEmitter-backed container in `server/src/agentStateStore.ts`. Typed mutations, typed events (`agentAdded`, `agentRemoved`, `agentUpdated`, `broadcast`). The broadcast layer subscribes once at boot and translates `StoreEvents` into `ServerMessage` over the active transport. **No module under `server/` calls a transport method directly.**
+EventEmitter-backed container in `server/src/agentStateStore.ts`. Typed mutations, typed events (`agentAdded`, `agentRemoved`, `agentUpdated`, `broadcast`). The broadcast layer subscribes once at boot and translates `StoreEvents` into `ServerMessage` over the WebSocket. **No module under `server/` calls a transport method directly.**
 
 ### SessionRouter and DismissalTracker
 
-Two extracted classes that replaced ad-hoc module state. `SessionRouter` owns `session_id → agent_id` mapping, pre-registration event buffering, and pending external sessions. `DismissalTracker` unifies four legacy globals (`dismissedJsonlFiles`, `clearDismissedFiles`, `seededMtimes`, `pendingClearFiles`) into one class with typed reasons.
+`SessionRouter` owns `session_id → agent_id` mapping, pre-registration event buffering, and pending external sessions. `DismissalTracker` unifies four legacy globals (`dismissedJsonlFiles`, `clearDismissedFiles`, `seededMtimes`, `pendingClearFiles`) into one class with typed reasons.
 
 ### HTTP + WebSocket Server
 
-Fastify v5 with `@fastify/cors`, `@fastify/websocket`, and (in standalone) `@fastify/static`:
+Fastify v5 with `@fastify/cors`, `@fastify/websocket` and `@fastify/static`:
 
-| Method | Path                     | Purpose                                 |
-| ------ | ------------------------ | --------------------------------------- |
-| POST   | `/api/hooks/:providerId` | Bearer-authenticated hook event ingress |
-| GET    | `/api/health`            | Liveness: `{ ok, version, port, pid }`  |
-| GET    | `/ws`                    | Bidirectional protocol channel          |
-| GET    | `/*` (standalone only)   | Webview SPA via `@fastify/static`       |
+| Method | Path                     | Purpose                                                        |
+| ------ | ------------------------ | -------------------------------------------------------------- |
+| POST   | `/api/hooks/:providerId` | Bearer-authenticated hook event ingress (raw Claude hook JSON) |
+| GET    | `/api/health`            | Liveness: `{ ok, version, port, pid }`                         |
+| GET    | `/ws`                    | Bidirectional protocol channel                                 |
+| GET    | `/*`                     | Browser SPA via `@fastify/static`                              |
+
+**The token.** Random UUID per start, or fixed with `--token` / `CLAUDE_OFFICE_TOKEN` (`validateToken` in `cli.ts`: at least `MIN_AUTH_TOKEN_LENGTH` = 16 characters, no whitespace; the flag wins over the env var). A fixed token is what lets a native `type: "http"` hook — on this machine, a remote one, or a cloud session — be configured once. When a start finds a running server it reuses it and keeps that server's token, warning if a different one was requested.
 
 `/ws` is gated in **two tiers**, because `setHooksEnabled(true)` over this socket is a durable, machine-wide consent grant plus a hook install.
 
-1. **Connection** (`isAllowedWebSocketOrigin`): embedded requires the Bearer token; standalone requires a same-origin handshake. A missing Origin still connects (non-browser clients send none). This tier is weak by design — a DNS-rebound page sends `Origin` and `Host` as the same attacker-chosen name and IS accepted (`httpServerWs.test.ts` pins that).
-2. **Privileged messages** (`standaloneTokenValid`, `ClientMessageContext.privileged`): proved by an out-of-band secret — embedded via its Bearer token, standalone via the server token in the `/ws` `?token=` query, which the CLI prints in the local URL and the SPA forwards (`webview-ui/src/transport/index.ts`). **Never a network position**: peer address, `Host` and `Origin` all ride the channel a proxy speaks, so a LAN-bound forwarder piping bytes to 127.0.0.1 satisfies all three. The token is a replayable bearer capability, not evidence of locality — it also reaches browser history and Fastify's request log, so the printed URL is documented to the user as a secret. An untokened client still watches the office; it just cannot change `~/.claude/settings.json`.
+1. **Connection** (`isAllowedWebSocketOrigin`): same-origin handshake. A missing Origin still connects (non-browser clients send none). This tier is weak by design — a DNS-rebound page sends `Origin` and `Host` as the same attacker-chosen name and IS accepted (`httpServerWs.test.ts` pins that).
+2. **Privileged messages** (`standaloneTokenValid`, `ClientMessageContext.privileged`): proved by the server token in the `/ws` `?token=` query, which the CLI prints in the local URL and the SPA forwards. **Never a network position**: peer address, `Host` and `Origin` all ride the channel a proxy speaks, so a LAN-bound forwarder piping bytes to 127.0.0.1 satisfies all three. The token is a replayable bearer capability, not evidence of locality — it also reaches browser history, so the printed URL is documented to the user as a secret. An untokened client still watches the office; it just cannot change `~/.claude/settings.json`.
 
 The **hooks preference is persisted only after the install/uninstall settled and the on-disk result agrees** — writing it first strands the user when an uninstall fails: entries still firing, but a persisted hooks-off makes the next startup skip the consent/install path entirely.
 
-Server discovery written to `~/.claude-office/server.json` with `{ port, pid, authToken }`. Multi-window safe: a second server detects an existing `server.json` and reuses or replaces it based on PID liveness.
+**Discovery.** `~/.claude-office/server.json` holds `{ port, pid, authToken, servesSpa }` for the current server and `~/.claude-office/servers/<pid>-<port>.json` registers every live process; the hook script fans each event out to all live registrations and prunes dead PIDs. A second `claude-office` start finds a live `servesSpa` entry and reuses it instead of binding another port.
 
 ### ClientMessageHandler
 
-Single dispatch point for `ClientMessage`. Each variant calls into `AgentRuntime`, `AgentStateStore`, `LayoutPersistence`, or `FileStateAdapter`, or delegates to host-specific callbacks (`onLaunchAgent`, `onOpenSessionsFolder`, `onExportLayout`, `onImportLayout`, `onSetHooksEnabled`). Both surfaces wire the same handler.
+Single dispatch point for `ClientMessage`. Each variant calls into `AgentRuntime`, `AgentStateStore`, `LayoutPersistence`, or `FileStateAdapter`; the only host callbacks are `onSetHooksEnabled` (consent + install) and `onReloadAssets` (external directory change).
 
 ### ServerAgentState (server/src/types.ts)
 
-Per-agent runtime data: provider reference, session key, transcript-fallback fields (`jsonlFile`, `fileOffset`, `lineBuffer`), tool state Maps and Sets, team fields (`teamName`, `agentName`, `isTeamLead`, `leadAgentId`, `teamUsesTmux`), context usage (`contextTokens`, `maxContextTokens`, `sawMainChainUsage`), and the **`hookDelivered`** flag that suppresses heuristic timers when hooks are flowing.
+Per-agent runtime data: provider reference, session key, transcript-fallback fields (`jsonlFile`, `fileOffset`, `lineBuffer`), tool state Maps and Sets, team fields (`teamName`, `agentName`, `isTeamLead`, `leadAgentId`, `teamUsesTmux`), context usage (`contextTokens`, `maxContextTokens`, `sawMainChainUsage`), and the **`hookDelivered`** flag that suppresses heuristic timers when hooks are flowing. Every agent is external (adopted); there is no terminal reference.
 
 ## Persistence
 
 ```
 ~/.claude-office/
-  config.json              { vscode, standalone, externalAssetDirectories, hooksConsent, hooksEnabled (both per-provider) }
-  vscode-state.json        { agents, seats }
-  standalone-state.json    { agents, seats }
-  layout.json              OfficeLayout (shared across surfaces)
-  server.json              { port, pid, authToken }
-  hooks/claude-office-hook.js     Bundled hook script (CJS, shebang)
+  config.json                  { standalone, externalAssetDirectories, hooksConsent, hooksEnabled (both per-provider) }
+  standalone-state.json        { agents, seats }
+  layout.json                  OfficeLayout
+  server.json                  { port, pid, authToken, servesSpa }
+  servers/<pid>-<port>.json    Live-server registry the hook script fans out to
+  hooks/claude-office-hook.js  Bundled hook script (CJS, shebang)
 ```
 
-`FileStateAdapter({ namespace })` backs both runtimes. Per-namespace settings: `soundEnabled`, `lastSeenVersion`, `alwaysShowLabels`, `watchAllSessions`, `hooksInfoShown` (the hooks preference is per-provider and machine-global, at the config top level). Running both surfaces in parallel never clobbers either.
+`FileStateAdapter({ namespace: 'standalone' })` is the only state adapter (`ConfigNamespace = 'standalone'`). Settings under the namespace: `soundEnabled`, `lastSeenVersion`, `alwaysShowLabels`, `watchAllSessions`, `hooksInfoShown`, `ghostHeadlessAgents`; the hooks preference and consent are per-provider and machine-global, at the config top level.
 
-`migrateVsCodeState` (VS Code adapter only) walks each known legacy key once with **verify-before-clear** semantics: write to file, read back, only then clear the legacy key. While anything remains unmigrated, activation shows a non-blocking warning.
+Layout writes are atomic via tmp + rename. There is no cross-process layout watcher: one server owns the file.
 
-Layout writes are atomic via tmp + rename. Cross-window watching is hybrid (`fs.watch` + 2 s polling). `markOwnWrite()` prevents the watcher from re-reading our own write.
+Nothing migrates from `~/.pixel-agents/`. A user coming from pixel-agents copies `layout.json` by hand and removes the old hook entries from `~/.claude/settings.json` (this installer only recognizes `/.claude-office/hooks/claude-office-hook.js`).
 
 ## Agent Status Tracking
 
@@ -347,12 +306,14 @@ JSONL transcripts at `~/.claude/projects/<project-hash>/<session-id>.jsonl`. Pro
 
 ### Dual-mode detection
 
-| Mode                     | Source                                                 | Detection                                                                                                                                                                                                                                                                         |
-| ------------------------ | ------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Hooks** (preferred)    | Claude Code Hooks API → HTTP POST → `HookEventHandler` | Instant, reliable. Installed events are `CLAUDE_HOOK_EVENTS`. `UserPromptSubmit`/`TaskCreated` are deliberately NOT installed — they normalize to null, so installing them only forwarded prompt text to be dropped; `normalizeHookEvent` still tolerates them for stale installs |
-| **Heuristic** (fallback) | Polling JSONL files                                    | Per-agent 500 ms JSONL polling for /clear detection; 1 s main scanner for terminal adoption; 3 s external scanner; 30 s stale check. Content-based /clear detection (`/clear</command-name>` in first 8 KB)                                                                       |
+| Mode                     | Source                                                 | Detection                                                                                                                                                                                                                                                                                                                                                                  |
+| ------------------------ | ------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Hooks** (preferred)    | Claude Code Hooks API → HTTP POST → `HookEventHandler` | Instant, reliable. Installed events are `CLAUDE_HOOK_EVENTS` (SessionStart, SessionEnd, Stop, PermissionRequest, Notification, PreToolUse, PostToolUse, PostToolUseFailure, SubagentStart, SubagentStop, TeammateIdle, TaskCompleted). `UserPromptSubmit`/`TaskCreated` are deliberately NOT installed — they normalize to null; `normalizeHookEvent` still tolerates them |
+| **Heuristic** (fallback) | Polling JSONL files                                    | Per-agent 500 ms JSONL polling; 1 s project scanner adopts new sessions of the start directory; 3 s external scanner (every session root with Watch All Sessions); 30 s stale check                                                                                                                                                                                        |
 
 The `hookDelivered` flag (per agent) and `hooksEnabled` (global) gate timer logic. JSONL polling always runs in both modes for tool content (status text, animations); only permission (7 s) and text-idle (5 s) timers are suppressed by `hookDelivered`.
+
+`SessionStart` alone only stages a pending session; the first follow-up event (`PreToolUse`, `Stop`, `Notification`, `PermissionRequest`) creates the agent. Hook-only sessions (no `transcript_path`, e.g. a remote machine) are full agents without a context gauge or Debug View transcript data.
 
 ### Sub-agent permission detection (heuristic)
 
@@ -379,21 +340,25 @@ Every agent's context gauge. Fed from `message.usage` on assistant records by `p
 
 **UI styling**: Pixel art aesthetic — sharp corners (`borderRadius: 0`), solid backgrounds (`#1e1e2e`), `2px solid` borders, hard offset shadows (`2px 2px 0px #0a0a14`, no blur). CSS variables in `index.css` `:root` (`--pixel-bg`, `--pixel-border`, `--pixel-accent`, ...). Pixel font: FS Pixel Sans (`webview-ui/src/fonts/`), loaded via `@font-face`, applied globally.
 
-Custom ESLint rules (`eslint-rules/claude-office-rules.mjs`) enforce: `no-inline-colors` (hex/rgb/rgba/hsl/hsla literals only in `constants.ts`), `pixel-shadow` (must use `var(--pixel-shadow)` or `2px 2px 0px`), `pixel-font` (must reference FS Pixel Sans). All `error`-level — they block PRs.
+Custom ESLint rules (`eslint-rules/claude-office-rules.mjs`, prefix `claude-office/`) enforce: `no-inline-colors` (hex/rgb/rgba/hsl/hsla literals only in `constants.ts`), `pixel-shadow` (must use `var(--pixel-shadow)` or `2px 2px 0px`), `pixel-font` (must reference FS Pixel Sans). All `error`-level.
 
 **Characters**: FSM states — active (pathfind to seat, typing/reading animation by tool type), idle (wander randomly with BFS, return to seat after `wanderLimit` moves). 4-directional sprites, left = flipped right. Tool animations: typing (Write/Edit/Bash/Task) vs reading (Read/Grep/Glob/WebFetch). Sitting offset: characters shift down 6 px in TYPE state. Z-sort uses `ch.y + TILE_SIZE/2 + 0.5` so characters render in front of same-row furniture but behind lower-row furniture. **Chair z-sorting**: non-back chairs use `zY = (row+1)*TILE_SIZE` (capped to first row); back-facing chairs use `zY = (row+1)*TILE_SIZE + 1` so the chair back renders in front of the character. Chair tiles are blocked for all characters except their own assigned seat (per-character pathfinding via `withOwnSeatUnblocked`).
 
-**Diverse palette assignment**: `pickDiversePalette()` counts palettes of current non-sub-agent characters; picks randomly from least-used palette(s). First 6 agents each get a unique skin; beyond 6, skins repeat with a random hue shift (45–315°) via `adjustSprite()`. Character stores `palette` (0-5) + `hueShift` (degrees). Sprite cache keyed by `"palette:hueShift"`.
+**Palette assignment** is server-side (`paletteAssigner.ts`, broadcast on `agentCreated`/`existingAgents`) so every connected browser sees the same colors: least-used palette first; the first 6 agents each get a unique skin, beyond 6 skins repeat with a random hue shift (45–315°) via `adjustSprite()`. Character stores `palette` (0-5) + `hueShift` (degrees). Sprite cache keyed by `"palette:hueShift"`.
 
 **Spawn/despawn effect**: Matrix-style digital rain animation (0.3 s). 16 vertical columns sweep top-to-bottom with staggered timing. Spawn: green rain reveals character pixels. Despawn: character pixels consumed by green rain trails. `matrixEffect` field on Character (`'spawn'`/`'despawn'`/`null`). Normal FSM is paused during effect. Restored agents (`existingAgents`) use `skipSpawnEffect: true` to appear instantly.
 
-**Sub-agents**: Negative IDs (from -1 down). Created on `agentToolStart` with "Subtask:" prefix, or lazily by `subagentToolStart` when missing (watched background spawns, post-reload recreation). Same palette + hueShift as parent. Click focuses parent terminal. Not persisted. Spawn at the closest free walkable tile to the parent (`closestFreeWalkableTile`) — around it, never in a seat. Idle (stop typing) when every tracked sub-tool row is done; overlay shows the latest non-done sub-tool status, falling back to the Subtask label.
+**Sub-agents**: Negative IDs (from -1 down). Created on `agentToolStart` with "Subtask:" prefix, or lazily by `subagentToolStart` when missing (watched background spawns, post-reload recreation). Same palette + hueShift as parent. Clicking one selects its parent. Not persisted. Spawn at the closest free walkable tile to the parent (`closestFreeWalkableTile`) — around it, never in a seat. Idle (stop typing) when every tracked sub-tool row is done; overlay shows the latest non-done sub-tool status, falling back to the Subtask label.
+
+**Headless cue**: upstream rendered adopted agents translucent ("Display Headless as Ghosts"). Here every agent is adopted, so the cue is disabled at the source (`HEADLESS_CUE_ENABLED = false` in `useExtensionMessages.ts`); the setting, the `setGhostHeadlessAgents` message and `HEADLESS_CHARACTER_ALPHA` remain only until their scheduled removal.
 
 **Speech bubbles**: Permission ("..." amber dots) stays until clicked/cleared. Waiting (green checkmark) auto-fades 2 s. Sprites in `spriteData.ts`.
 
-**Sound notifications**: Ascending two-note chime (E5 → E6) via Web Audio API plays when waiting bubble appears (`agentStatus: 'waiting'`). `notificationSound.ts` manages AudioContext lifecycle; `unlockAudio()` on canvas mousedown resumes the context (webviews start suspended). Toggled via Settings modal. Persisted per-namespace in `~/.claude-office/config.json`.
+**Sound notifications**: Ascending two-note chime (E5 → E6) via Web Audio API plays when waiting bubble appears (`agentStatus: 'waiting'`). `notificationSound.ts` manages AudioContext lifecycle; `unlockAudio()` on canvas mousedown resumes the context (pages start suspended). Toggled via Settings modal. Persisted in `~/.claude-office/config.json`.
 
 **Seats**: Derived from chair furniture. `layoutToSeats()` creates a seat at every footprint tile of every chair. Multi-tile chairs produce multiple seats keyed `uid` / `uid:1` / `uid:2`. Facing direction priority: 1) chair `orientation` from catalog (front→DOWN, back→UP, left→LEFT, right→RIGHT), 2) adjacent desk direction, 3) forward (DOWN). Click character → select (white outline) → click available seat → reassign.
+
+**Areas**: named tile regions mapped to project folders (`saveAreaMappings`); the folder list the Settings modal offers is derived from the tracked agents' folder names (`agentFolderNames`), since there is no IDE workspace to enumerate.
 
 ## Layout Editor
 
@@ -413,11 +378,11 @@ Toggle via "Layout" button. Tools: SELECT (default), Floor paint, Wall paint, Er
 
 **Grid expansion**: In floor/wall/erase tools, a ghost border (dashed outline) appears 1 tile outside the grid. Clicking a ghost tile calls `expandLayout()` to grow the grid by 1 tile in that direction. New tiles are VOID. Furniture positions and character positions shift when expanding left/up. Max: `MAX_COLS`×`MAX_ROWS` (64×64). Default: `DEFAULT_COLS`×`DEFAULT_ROWS` (20×11). Characters outside bounds after resize relocated to random walkable tiles.
 
-**Layout model**: `{ version: 1, cols, rows, tiles: TileType[], furniture: PlacedFurniture[], tileColors?: ColorValue[] }`. Grid dimensions are dynamic. Persisted via debounced saveLayout message → `writeLayoutToFile()` → `~/.claude-office/layout.json`.
+**Layout model**: `{ version: 1, cols, rows, tiles: TileType[], furniture: PlacedFurniture[], tileColors?: ColorValue[] }`. Grid dimensions are dynamic. Persisted via debounced saveLayout message → `writeLayoutToFile()` → `~/.claude-office/layout.json`. Export/Import in Settings run entirely in the browser (download / file picker), not through the protocol.
 
 ## Asset System
 
-**Loading**: `esbuild.js` copies `webview-ui/public/assets/` → `dist/assets/`. Loader checks bundled path first, falls back to workspace root. PNG → pngjs → SpriteData (2D hex array, alpha≥2 = visible, `#RRGGBBAA` for semi-transparent). `loadDefaultLayout()` reads `assets/default-layout.json` as fallback for new workspaces.
+**Loading**: `esbuild.js` copies `webview-ui/public/assets/` → `dist/assets/`. Loader checks bundled path first, falls back to workspace root. PNG → pngjs → SpriteData (2D hex array, alpha≥2 = visible, `#RRGGBBAA` for semi-transparent). `loadDefaultLayout()` reads `assets/default-layout.json` as fallback for new installs.
 
 **Catalog**: `furniture-catalog.json` with `id, name, label, category, footprint, isDesk, canPlaceOnWalls, groupId?, orientation?, state?, canPlaceOnSurfaces?, backgroundTiles?`. String-based type system. Categories: desks, chairs, storage, electronics, decor, wall, misc. Wall-placeable items use the `wall` category and appear in a dedicated "Wall" tab. Asset naming convention: `{BASE}[_{ORIENTATION}][_{STATE}]` (e.g., `MONITOR_FRONT_OFF`).
 
@@ -443,62 +408,63 @@ Toggle via "Layout" button. Tools: SELECT (default), Floor paint, Wall paint, Er
 
 **Character sprites**: 6 pre-colored PNGs (`assets/characters/char_0.png`–`char_5.png`), one per palette. Each 112×96: 7 frames × 16 px wide, 3 direction rows × 32 px tall. Row 0 = down, Row 1 = up, Row 2 = right. Frame order: walk1, walk2, walk3, type1, type2, read1, read2. Left = flipped right at runtime. When `hueShift !== 0`, `hueShiftSprites()` applies `adjustSprite()` to all frames before caching.
 
+**External directories**: `addExternalAssetDirectory` takes a typed absolute `path` (the browser has no native folder picker); the server validates it, persists it in `config.json` and re-broadcasts the merged sprites. See `docs/external-assets.md`.
+
 **Load order**: `characterSpritesLoaded` → `floorTilesLoaded` → `wallTilesLoaded` → `furnitureAssetsLoaded` → `layoutLoaded`.
 
 ## Testing
 
-Three tiers, each with its own framework.
+Three tiers, each with its own framework. There is no CI: run them locally before pushing.
 
 ### Server unit/integration (Vitest)
 
-`server/__tests__/` covers the shared runtime, persistence, providers, HTTP/WebSocket server, CLI, diagnostics, asset reloads, and the e2e scenario runner. Representative suites include:
+`server/__tests__/` (28 files) covers the runtime, persistence, providers, HTTP/WebSocket server, CLI, diagnostics, asset reloads, and the e2e scenario runner. Representative suites:
 
 | File                           | Coverage                                                                                                                                       |
 | ------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------- |
 | `agentStateStore.test.ts`      | Mutations, EventEmitter events, snapshot                                                                                                       |
+| `agentRuntime.test.ts`         | Lifecycle, scanners, restore                                                                                                                   |
 | `hookEventHandler.test.ts`     | Routing, buffering, normalized dispatch, team gating                                                                                           |
 | `sessionRouter.test.ts`        | session_id mapping, pending sessions, buffer flush                                                                                             |
 | `fileWatcherDismissal.test.ts` | DismissalTracker integration                                                                                                                   |
 | `fileStateAdapter.test.ts`     | Namespaced persistence, allowlist, settings round-trip                                                                                         |
-| `migrateVsCodeState.test.ts`   | Verify-before-clear, partial migration                                                                                                         |
+| `configPersistence.test.ts`    | `standalone` namespace, consent + hooksEnabled maps, external directories                                                                      |
+| `backgroundAgents.test.ts`     | Sidecar classification, shadow store, teammate promotion                                                                                       |
+| `contextUsage.test.ts`         | Snapshot semantics, sidechain latch, provider windows                                                                                          |
 | `teamUtils.test.ts`            | Inline-teammate helpers                                                                                                                        |
 | `claudeTeamProvider.test.ts`   | Discovery, membership, metadata extraction                                                                                                     |
 | `claude.test.ts`               | `normalizeHookEvent` per Claude event, file fallback                                                                                           |
 | `claudeHookInstaller.test.ts`  | Atomic install/uninstall, unparseable-file + non-array abort, throwing writes, mode preservation, backup, hook identity, event-scope migration |
 | `consentFlow.test.ts`          | In-app consent over the wire: who is asked, what each answer writes, Back-and-revise semantics, answer serialization                           |
 | `claude-office-hook.test.ts`   | Spawned hook script integration (needs `dist/hooks/claude-office-hook.js`)                                                                     |
-| `server.test.ts`               | HTTP lifecycle, auth, `/ws`, broadcast                                                                                                         |
-| `httpServerWs.test.ts`         | `/ws` gate: standalone same-origin, embedded Bearer                                                                                            |
+| `cli.test.ts`                  | `parseArgs` (port/host/token/env), token validation, spawned CLI with and without Bearer                                                       |
+| `server.test.ts`               | HTTP lifecycle, auth, `/ws`, broadcast, reuse of a running server, registry pruning                                                            |
+| `httpServerWs.test.ts`         | `/ws` gate: same-origin handshake, `?token=` privilege                                                                                         |
 | `mockClaudeRunner.test.ts`     | E2E scenario runner sanity                                                                                                                     |
 
-Run: `npm run test:server` (or `npm test` for all).
+Run: `npm run test:server` (or `npm test` for all three tiers). Known environment quirk: "rejects when the .claude directory is not writable" (`claudeHookInstaller.test.ts`) fails when the suite runs as root, because root ignores file modes; it is skipped on Windows and passes as a normal user.
 
 ### Webview unit (Vitest, Node runner)
 
-`webview-ui/test/` covers office state, layout editing and migration, assets, changelog behavior, and Vite/browser wiring.
+`webview-ui/test/` (10 files) covers office state, layout serialization, teammate seating, pets, the Intro reducer and Vite/browser wiring. Run: `npm run test:webview`.
 
-Run: `npm run test:webview`.
+### Package contract (node --test)
+
+`scripts/npm-package-contract.test.mjs` pins the package name, repository URL and required tarball files. Run: `npm run test:package-contract`. `npm run verify:npm-package` additionally packs, installs the tarball into a temp project and smoke-tests the CLI (`--help`, `/api/health`, SPA, assets, hooks).
 
 ### End-to-end (Playwright)
 
-`e2e/` contains Playwright tests against a real VS Code Electron instance and a standalone Fastify server. CI runs the suite on Linux, macOS, and Windows in three shards at `--workers=1`. The generated [e2e inventory](e2e/README.md) is the source of truth for current specs, scenarios, and `@area:` coverage.
+`e2e/tests/standalone/` holds 10 tests (`@area:standalone`) against the real `dist/cli.js`: each test spawns the server with an isolated `HOME` and workspace, opens the printed URL in Playwright's Chromium and drives the public seams — the hook endpoint, the SPA and the files written under `HOME`. Build first (`npm run build`); Playwright downloads its Chromium on first use (`npx playwright install chromium`). The generated [e2e inventory](e2e/README.md) is the source of truth for current specs and the normative **test model & rules**; read it before adding a spec.
 
-**Mock claude**: Tests never invoke real `claude`. A bash script (`e2e/fixtures/mock-claude`) is copied into an isolated `bin/` and prepended to `PATH`. The scenario runner (`mock-claude-runner.cjs`) honors `claudeScenario(...).at(ms).appendJsonl(record).emitHook(event).holdOpenFor(ms).build()` to drive timed JSONL writes and hook events.
+**Mock claude**: tests never invoke real `claude`. `e2e/fixtures/mock-claude-runner.cjs` honors `claudeScenario(...).at(ms).appendJsonl(record).emitHook(event).holdOpenFor(ms).build()` to drive timed JSONL writes and hook events from a separate process.
 
-**Authoring rules (normative)**: before writing a new spec, read `e2e/README.md` → "Mocking model & rules". It is the single source of truth for the process-boundary principle, the append-only transcript rule, the assert-on-visible-outcomes discipline, and the one standalone-server exception. New tests must follow that model.
+**Isolation**: each test gets its own `tmpHome`, workspace directory and mock-log file. No state leaks between tests.
 
-**Isolation**: each test gets its own `tmpHome`, workspace directory, VS Code `--user-data-dir`, and mock-log file. No state leaks between tests.
-
-**Auto-fixtures**: `_allureLabels` (auto: true) reads `@area:<tag>` from `testInfo.tags` and applies the corresponding Allure epic.
-
-**Single source of truth for test inventory**: `e2e/README.md` contains an auto-generated section spliced between `<!-- BEGIN:E2E-INVENTORY -->` and `<!-- END:E2E-INVENTORY -->` markers. CI regenerates via `npm run e2e:inventory` and fails on `git diff --exit-code e2e/README.md`.
-
-Run:
+**Inventory**: `e2e/README.md` contains an auto-generated section spliced between `<!-- BEGIN:E2E-INVENTORY -->` and `<!-- END:E2E-INVENTORY -->` markers. After adding or removing tests run `npm run e2e:inventory` and commit the result (nothing else regenerates it).
 
 ```bash
 npm run e2e                                    # all tests
-npm run e2e -- --workers=1                     # single worker (matches CI sharding)
-npm run e2e -- --grep "lifecycle"              # filter by name
+npm run e2e -- --grep "consent"                # filter by name
 npm run e2e:debug                              # step-through
 npm run e2e -- --attach-videos-on-success      # keep videos for passes too
 npm run e2e:inventory                          # regen e2e/README.md inventory
@@ -506,81 +472,74 @@ npm run test:report                            # build combined Allure report
 npm run test:report:open                       # serve Allure locally (file:// can't fetch)
 ```
 
-**Reproducing CI failures locally**: CI uses `--workers=1` because the runners can't handle more. Reproduce locally with `npm run e2e -- --workers=1 --grep "<test>"`. For full Linux fidelity, `act -j linux-e2e --matrix shard:1 -P ubuntu-latest=catthehacker/ubuntu:full-22.04 --container-architecture linux/amd64` or run inside `mcr.microsoft.com/playwright:v1.58.2-noble` Docker with `--cpus=2 --memory=4g` to simulate runner throttling.
-
 ## Build & Dev
 
-**npm workspaces monorepo** (`server`, `webview-ui`). A single `npm install` at the root installs deps for all workspaces; `cd webview-ui && npm install` is redundant.
+**npm workspaces monorepo** (`server`, `webview-ui`). A single `npm install` at the root installs deps for all workspaces.
 
 ```bash
 npm install                # installs root + workspaces in one shot
-npm run compile            # asyncapi:generate, check-types, lint, esbuild, vite
-npm run build              # alias for compile
+npm run build              # asyncapi:generate, check-types, lint, esbuild, vite  (alias: compile)
 npm run package            # production build (esbuild --production)
-npm test                   # webview + server vitest
+npm start -- --port 3100   # node dist/cli.js --port 3100
+npm test                   # webview + server vitest + package contract
 npm run e2e                # Playwright
+npm run format             # prettier --write
+npm run knip               # unused files/exports/dependencies
 ```
 
-`esbuild.js` runs three bundles:
+`esbuild.js` runs two bundles plus an asset copy:
 
-1. **Extension** (`dist/extension.js`) from `adapters/vscode/extension.ts`. External: `vscode`.
-2. **CLI** (`dist/cli.js`) from `server/src/cli.ts`. Externals pulled at install time (`fastify`, `@fastify/*`).
-3. **Hook scripts** (`dist/hooks/claude-office-hook.js`) from `server/src/providers/hook/claude/hooks/claude-office-hook.ts`. CJS, shebang.
+1. **CLI** (`dist/cli.js`) from `server/src/cli.ts`. Externals pulled at install time (`fastify`, `@fastify/*`).
+2. **Hook script** (`dist/hooks/claude-office-hook.js`) from `server/src/providers/hook/claude/hooks/claude-office-hook.ts`. CJS, shebang.
+3. `copyAssets()`: `webview-ui/public/assets/` → `dist/assets/`.
 
-`define: { 'process.env.CLAUDE_OFFICE_VERSION': JSON.stringify(version) }` stamps the package version into all bundles.
+`define: { 'process.env.CLAUDE_OFFICE_VERSION': JSON.stringify(version) }` stamps the package version into both bundles.
 
 **Watch mode**:
 
 ```bash
 npm run watch                       # parallel esbuild watch + tsc --noEmit watch
-cd webview-ui && npm run dev        # Vite dev server (separate terminal)
+npm run dev -w webview-ui           # Vite dev server with browserMock (no server needed)
 ```
 
-The webview Vite dev server is **not** included in `npm run watch` — it has to be run separately.
+The webview Vite dev server is **not** included in `npm run watch`; after webview changes run `npm run build:webview` or the full build.
 
-**F5 in VS Code** launches the Extension Development Host with the local extension loaded.
+**Pre-commit** (husky + lint-staged): `gitleaks protect --staged` when gitleaks is installed (skipped with a warning otherwise), then eslint/prettier on staged files.
 
-### CI
-
-Single workflow runs (in order): install, lint, `asyncapi:validate`, `asyncapi:generate` + drift check, `e2e:inventory` + drift check, `check-types`, `test:server`, `test:webview`, `e2e` (3-OS x 3-shard matrix: Linux, macOS, Windows), `package`, then a PR-only Vercel preview deploy of the combined Allure report (gated on secrets; gracefully skips on forks, non-blocking on failure). Pushes to `main` run the checks but never deploy to Vercel.
-
-The drift checks are the central guarantees: `core/asyncapi.yaml` ↔ `core/src/messages.ts` stay in lockstep; `e2e/README.md` stays in sync with the spec list.
+**Checks before pushing** (what CI used to run): `npm run lint`, `npm run check-types`, `npm run asyncapi:validate`, `npm run build` (regenerates `core/src/messages.ts` — commit any diff), `npm run e2e:inventory` (commit any diff), `npm test`, `npm run e2e`.
 
 ## TypeScript Constraints
 
 - **No `enum`** (`erasableSyntaxOnly` in webview) — use `as const` objects (`TileType`, `CharacterState`, `Direction`, `EditTool`).
-- **`import type`** required for type-only imports (`verbatimModuleSyntax` in webview; convention in extension).
+- **`import type`** required for type-only imports (`verbatimModuleSyntax` in webview; convention in server).
 - **`noUnusedLocals` / `noUnusedParameters`** — strict everywhere.
-- **`.js` extensions** on all relative imports in extension + server (Node16 module resolution).
-- **Module Node16, target ES2022** in the extension/server. **`erasableSyntaxOnly`, `verbatimModuleSyntax`, `noFallthroughCasesInSwitch`** in the webview.
+- **`.js` extensions** on all relative imports in server + core (Node16 module resolution).
+- **Module Node16, target ES2022** in server/core. **`erasableSyntaxOnly`, `verbatimModuleSyntax`, `noFallthroughCasesInSwitch`** in the webview.
 
 ## Constants Policy
 
 All magic numbers and strings are centralized — never inline:
 
-| Where                              | What lives there                                                                                                                        |
-| ---------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
-| `server/src/constants.ts`          | All timing/scanning constants (`PERMISSION_TIMER_DELAY_MS`, `TEXT_IDLE_DELAY_MS`, scanner intervals) shared by extension and standalone |
-| `adapters/vscode/constants.ts`     | VS Code-only IDs, command names, workspace state keys                                                                                   |
-| `core/src/constants.ts`            | Protocol-level constants (e.g., transport state names)                                                                                  |
-| `webview-ui/src/constants.ts`      | Webview magic numbers (grid, animation, rendering, camera, zoom, editor, game logic) + canvas overlay rgba strings                      |
-| `webview-ui/src/index.css` `:root` | CSS custom properties (`--pixel-bg`, `--pixel-border`, `--pixel-accent`, ...) for React inline styles and CSS                           |
-| `webview-ui/src/office/types.ts`   | Re-exports grid constants from `constants.ts` for convenience                                                                           |
+| Where                                           | What lives there                                                                                                                           |
+| ----------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| `server/src/constants.ts`                       | Timing/scanning constants (`PERMISSION_TIMER_DELAY_MS`, `TEXT_IDLE_DELAY_MS`, scanner intervals), `TOKEN_ENV_VAR`, `MIN_AUTH_TOKEN_LENGTH` |
+| `server/src/providers/hook/claude/constants.ts` | Claude hook event names, hook script name/dir, settings backup suffix                                                                      |
+| `core/src/constants.ts`                         | Protocol-level constants (e.g., transport state names)                                                                                     |
+| `webview-ui/src/constants.ts`                   | Webview magic numbers (grid, animation, rendering, camera, zoom, editor, game logic) + canvas overlay rgba strings                         |
+| `webview-ui/src/index.css` `:root`              | CSS custom properties (`--pixel-bg`, `--pixel-border`, `--pixel-accent`, ...) for React inline styles and CSS                              |
+| `webview-ui/src/office/types.ts`                | Re-exports grid constants from `constants.ts` for convenience                                                                              |
 
 ## Error Handling
 
-- **Try-catch with graceful degradation** — errors logged but never crash the extension.
+- **Try-catch with graceful degradation** — errors logged but never crash the server.
 - **Malformed JSONL lines** silently ignored (catch block in `processTranscriptLine`).
 - **Missing assets** logged with warning, operation continues with null/fallback.
+- A hook POST that fails never blocks Claude Code (non-2xx is a non-blocking hook error on its side).
 - No centralized error reporting or telemetry.
 
 ## Logging
 
-Use `console.log`/`error`/`warn` with prefixed context:
-
-- Extension: `[Claude Office]`, `[Extension]`
-- Asset loading: `[AssetLoader]`
-- Webview: `[Webview]`
+Use `console.log`/`error`/`warn` with prefixed context: server `[Claude Office]`, asset loading `[AssetLoader]`, browser `[Webview]`, `[Transport]`, `[BrowserMock]`. Fastify's request logger is off (`logger: false`), so the tokened URL never lands in a server log.
 
 ## Condensed Lessons
 
@@ -590,60 +549,55 @@ Use `console.log`/`error`/`warn` with prefixed context:
 - **Idle detection** has two signals: (1) `system` + `subtype: "turn_duration"` — reliable for tool-using turns (~98%), emitted once per completed turn. (2) Text-idle timer (`TEXT_IDLE_DELAY_MS = 5 s`) — for text-only turns. Only starts when `hadToolsInTurn` is false; suppressed once `hadToolsInTurn` becomes true. Reset on new user prompt or `turn_duration`. Cancelled by ANY new JSONL data.
 - User prompt `content` can be string (text) or array (tool_results) — handle both.
 - `/clear` creates a NEW JSONL file (old file just stops).
-- `--output-format stream-json` needs non-TTY stdin — can't use with VS Code terminals.
-- Hook-based IPC failed in early prototypes (hooks captured at startup, env vars don't propagate). HTTP `/api/hooks/:providerId` with `~/.claude-office/server.json` discovery works.
+- Hook-based IPC through env vars failed in early upstream prototypes (hooks captured at startup, env vars don't propagate). HTTP `/api/hooks/:providerId` with `~/.claude-office/server.json` + `servers/` discovery works.
 - PNG→SpriteData: pngjs for RGBA buffer, alpha threshold 2 (`PNG_ALPHA_THRESHOLD`), supports `#RRGGBBAA` semi-transparent pixels.
 - OfficeCanvas selection changes are imperative (`editorState.selectedFurnitureUid`); must call `onEditorSelectionChange()` to trigger React re-render for toolbar.
-- **External-session adoption**: scanner runs every 3 s. In hooks-OFF mode external scenarios, the test setup can race the first scanner tick. Mock-claude scenarios should give a few seconds of margin before assertions.
+- **External-session adoption**: scanner runs every 3 s. In hooks-OFF scenarios the test setup can race the first scanner tick. Mock-claude scenarios should give a few seconds of margin before assertions.
 - **Heuristic sub-agent permission bubble timing**: the bubble lands 7 s after the SUB-TOOL is registered, not 7 s after the parent Task tool appears. Tests waiting on it from the "Subtask:" overlay need at least `1 s (Task→Bash gap) + 7 s timer + ~300 ms IPC/render = 9–10 s` budget.
 - **runInBackground sub-character gate**: in webview `agentToolStart`, `runInBackground=true` Agent tools are gated out of sub-character creation when the parent has a `teamName` (teammate path handles it). With no `teamName`, the gate must be bypassed so the basic Subtask sub-character still renders. `addSubagent` dedups via `subagentIdMap`, so the bypass is safe even if a teammate is detected later. `subagentToolStart` creates the sub lazily when it's missing — covering teamed leads' unnamed background spawns and post-reload recreation.
 - **Allure HTML report**: viewing via `file://` fails (browsers block `fetch()` from local files). Use `npx allure open allure-report/allure` or `npm run test:report:open`.
 - **Context usage is a snapshot against a provider-declared window**, and both halves are easy to get wrong: cumulative sums measure spend rather than occupancy, `input_tokens` without the cache counters measures almost nothing, and a 200k window assumed for a 1M model reads five times too full (the number to check it against is Claude Code's own statusline `context_window.used_percentage`).
+- **Playwright version vs. preinstalled browsers**: `@playwright/test` wants the Chromium revision it was released with. On a machine with a different preinstalled revision, point `launchOptions.executablePath` at it from a local config override instead of downgrading the package.
+- **Killing the server from a script**: `pkill -f dist/cli.js` matches the shell that runs it too. Kill by PID (`~/.claude-office/server.json` carries it).
 
 ## Manual Hook Testing
 
-`server/manual-hook-events.http` (REST-Client format) drives the local hook server while the extension is running. Copy `port` and `token` from `~/.claude-office/server.json`, set `cwd` to a workspace folder opened in the Extension Development Host. Covers `SessionStart` → `PreToolUse` → `PermissionRequest`/`Notification`/`Stop` → `SessionEnd`.
+`server/manual-hook-events.http` (REST-Client format) drives the local hook server. Start `node dist/cli.js --port 3100`, copy `port` and `token` from `~/.claude-office/server.json`, set `cwd` to the folder the server was started from (or enable **Watch All Sessions**). Covers `SessionStart` → `PreToolUse` → `PermissionRequest`/`Notification`/`Stop` → `SessionEnd`. The same requests, with a fixed token, verify a native `http` hook setup (`docs/remote-hooks.md`).
 
-If `cwd` is outside the current workspace, enable **Watch All Sessions** first.
+## Asset Tools
 
-## Asset Pipeline (legacy tileset import)
-
-7-stage pipeline in `scripts/` for importing third-party tilesets (the bundled assets don't need this):
-
-1. `0-import-tileset.ts` — Interactive CLI wrapper
-2. `1-detect-assets.ts` — Flood-fill asset detection
-3. `2-asset-editor.html` — Browser UI for position/bounds editing
-4. `3-vision-inspect.ts` — Claude vision auto-metadata
-5. `4-review-metadata.html` — Browser UI for metadata review
-6. `5-export-assets.ts` — Export PNGs + `furniture-catalog.json`
-7. `asset-manager.html` — Unified editor (stages 2+4 combined), Save/Save As via File System Access API
-
-Supporting: `wall-tile-editor.html` (wall sprite editing), `jsonl-viewer.html` (transcript inspector).
+`scripts/asset-manager.html` (furniture manifest editor, Save/Save As via File System Access API), `scripts/wall-tile-editor.html` (wall sprite editing) and `scripts/jsonl-viewer.html` (transcript inspector) open directly in a browser.
 
 ## Key Decisions
 
-- **Layered codebase** (core → server → adapters; core → webview-ui). Standalone CLI never imports `adapters/vscode/` and vice versa.
-- **AsyncAPI 3.0 contract**, generated TS bindings, CI drift check. Single source of truth for the wire protocol.
-- **AgentRuntime** shared lifecycle core, composed by both surfaces.
-- **AgentStateStore** as single source of truth with typed mutations and typed events. No transport calls outside the broadcast layer.
-- **Transport abstraction**: `MessageTransport` interface, `PostMessageTransport` + `WebSocketTransport`. One branching point in the entire UI.
-- **HookProvider** as the integration boundary, with optional file fallback. New CLIs are a single subdirectory under `server/src/providers/hook/<id>/`.
-- **TeamProvider** as optional extension. Claude Agent Teams is the only implementation.
-- **Per-adapter namespaced persistence** under `~/.claude-office/`. VS Code and standalone never clobber each other.
-- **Verify-before-clear migration** for legacy VS Code state.
-- **Single `WebviewViewProvider`** (panel area, not editor area).
-- **Inline esbuild problem matcher** (no extra extension needed).
+Fork-level (taken with the owner, recorded in `docs/PLAN.md`):
+
+- **Web only, deep clean.** The VS Code adapter went away together with everything that existed only for it: terminal adoption, the IDE-only protocol messages, the `vscode` config namespace, legacy state migration, VSIX packaging, Vercel staging, GitHub workflows and templates, and the VS Code e2e suite. The office observes; it never launches agents. A web terminal is phase 2.
+- **100% Claude.** No other CLIs. Claude Code locally first; cloud sessions and Agent SDK agents arrive through the same hook ingress with a fixed token.
+- **Renamed end to end**: package and command `claude-office`, state dir `~/.claude-office/`, hook script `claude-office-hook.js`, env vars `CLAUDE_OFFICE_*`, ESLint rule prefix `claude-office/`. No legacy hook-name support: the installer recognizes only its own suffix, so stale `pixel-agents` entries are left untouched for the user to remove.
+- **No CI for now.** Husky + lint-staged on commit (gitleaks optional); the former CI checklist is run by hand before pushing.
+- **Fixed token** (`--token` / `CLAUDE_OFFICE_TOKEN`, validated) so native `http` hooks can be configured once; random per start otherwise.
+- **Upstream stays mergeable.** Full pixel-agents history kept; `git remote add upstream https://github.com/pixel-agents-hq/pixel-agents` and merge, keeping fork changes small and isolated.
+- **Hosting undecided** for phase 2; the plan assumes generic Docker behind a TLS proxy.
+
+Inherited from upstream and still true:
+
+- **Layered codebase** (core → server; core → webview-ui).
+- **AsyncAPI 3.0 contract**, generated TS bindings. Single source of truth for the wire protocol.
+- **AgentRuntime** lifecycle core; **AgentStateStore** as single source of truth with typed mutations and typed events. No transport calls outside the broadcast layer.
+- **Transport abstraction**: `MessageTransport` interface with one implementation (`WebSocketTransport`).
+- **HookProvider** as the integration boundary, with optional file fallback. **TeamProvider** as optional extension; Claude Agent Teams is the only implementation.
 - **`erasableSyntaxOnly`** in webview forbids `enum` — use `as const` objects.
 - **Server always starts** regardless of hooks toggle. Only hook installation is gated by the setting.
-- **Consent before any FIRST settings-file write**, per provider (`hooksConsent: {providerId: 'granted'|'declined'}`, absent = unanswered; the `hooksEnabled` preference beside it is per-provider and machine-global). **Exactly one population is asked: the one with nothing of ours installed** — hooks already on disk are granted silently at startup, since that install only ever removes events. The ask is one step of the Intro, the four-step first-run tour a greeter character speaks in-app on both surfaces (`IntroBubble.tsx`); the server sends `hooksConsentRequest` during the `webviewReady` handshake, one per provider, privileged connections only, carrying the provider's own `consentDisclosure()` so no client-side copy can drift. The ask-or-not predicate, the choice→action rule, and the execution live ONCE in `server/src/providers/hook/` (`consentGate.ts` decides, `consentExecutor.ts` performs); surfaces supply only their effects. **A choice is an absolute state command, not an event** — Back re-opens the ask, so a revision undoes whatever the earlier answer left: hooks on disk, a grant a failed install recorded, or a decline's own persisted hooks-off. That is why the consent record is a tri-state and each answer commits in ONE config write; the full rule and its rejected alternatives are `docs/adr/0001`. An abort (close x, Escape) sends nothing and the whole Intro returns next open; the closing step reports the install OUTCOME, not the click.
-- **`hooksStatus` is install state, `hooksEnabled` is preference.** The Settings checkbox binds to `hooksInstalled` and toggles the _displayed_ state with no optimistic local update, so it can't read "on" over an untouched settings.json and lands correct rather than flickering when an install fails. Every failure path re-derives and broadcasts the truth (standalone via `clientMessageHandler`, VS Code via `reportHooksStatus`). The hook script is copied BEFORE the entries are written; a failed copy aborts the install (entries pointing at a missing script spawn a dead `node` per event). **Hooks-off is persisted only AFTER a successful uninstall** — flipping it first strands the user: the entries keep firing while the persisted preference makes the next start skip the gate entirely.
-- **Never rewrite a shape we did not author.** The unparseable-file abort generalizes: a non-object `hooks`, a non-array `hooks.<Event>`, and junk entries inside an event array are all refused or passed through, never replaced. An array `hooks` was the sharp case — string keys assigned onto it vanish from `JSON.stringify`, so the write committed and reported `installed: true` over a file with no hooks in it. Emptied event keys are deleted only when _our_ removal emptied them. **Internal sentinels must not be values user JSON can hold**: `null` marked "this entry is now empty", so a user-authored `null` inside a hooks array was silently deleted (a file with no Claude Office command anywhere came back rewritten and logged as "Hooks removed") — it is a `Symbol` now.
-- **Hook identity is anchored at both ends, not a substring.** `includes('claude-office-hook.js') && includes('.claude-office')` claimed — and `uninstallHooks` then DELETED — a `.backup` copy of our script, a shell comment naming our path, a wrapper passing it as an argument, `/opt/evil.claude-office/hooks/claude-office-hook.js`, and `my-claude-office-hook.js`. Ours = the `/.claude-office/hooks/claude-office-hook.js` suffix, ending the command's FIRST token, matched **case-insensitively** (the token is normalized to lower case). Case-sensitive matching is what shipped, and on the case-insensitive volumes this runs on (macOS, Windows) a differently-cased path is the SAME INODE as our script and genuinely firing: reinstall appended a duplicate and uninstall left the cased entry as an orphan our own `areHooksInstalled` could no longer see — a live hook with no removal route. The folding is unconditional (no filesystem case-sensitivity probe), so the accepted trade is a Linux-only false positive that is **not** a mere dedup: on a case-sensitive volume `~/.Pixel-Agents/hooks/claude-office-hook.js` is a genuinely DIFFERENT file, we classify it as ours, and uninstall **deletes** it (`claudeHookInstaller.test.ts` pins that removal). Nothing creates that path, and the trade is deliberate — the alternative is a guaranteed unremovable live hook on the two platforms this actually ships to. A symlink alias to our script is deliberately _not_ recognized — the cost is one duplicate entry, versus deleting a stranger's hook if we resolved paths.
-- **E2E over webview unit tests** for OSS friction. Community PRs change webview internals constantly; unit tests would force contributors to update internals tests on top of feature work. E2E pins user-facing behavior, which is stable across internal refactors.
+- **Consent before any FIRST settings-file write**, per provider (`hooksConsent: {providerId: 'granted'|'declined'}`, absent = unanswered; the `hooksEnabled` preference beside it is per-provider and machine-global). **Exactly one population is asked: the one with nothing of ours installed** — hooks already on disk are granted silently at startup, since that install only ever removes events. The ask is one step of the Intro, the four-step first-run tour a greeter character speaks in-app (`IntroBubble.tsx`); the server sends `hooksConsentRequest` during the `webviewReady` handshake, one per provider, privileged connections only, carrying the provider's own `consentDisclosure()` so no client-side copy can drift. The ask-or-not predicate, the choice→action rule, and the execution live ONCE in `server/src/providers/hook/` (`consentGate.ts` decides, `consentExecutor.ts` performs). **A choice is an absolute state command, not an event** — Back re-opens the ask, so a revision undoes whatever the earlier answer left: hooks on disk, a grant a failed install recorded, or a decline's own persisted hooks-off. That is why the consent record is a tri-state and each answer commits in ONE config write; the full rule and its rejected alternatives are `docs/adr/0001`. An abort (close x, Escape) sends nothing and the whole Intro returns next open; the closing step reports the install OUTCOME, not the click.
+- **`hooksStatus` is install state, `hooksEnabled` is preference.** The Settings checkbox binds to `hooksInstalled` and toggles the _displayed_ state with no optimistic local update, so it can't read "on" over an untouched settings.json and lands correct rather than flickering when an install fails. Every failure path re-derives and broadcasts the truth (`clientMessageHandler`). The hook script is copied BEFORE the entries are written; a failed copy aborts the install (entries pointing at a missing script spawn a dead `node` per event). **Hooks-off is persisted only AFTER a successful uninstall** — flipping it first strands the user: the entries keep firing while the persisted preference makes the next start skip the gate entirely.
+- **Never rewrite a shape we did not author.** The unparseable-file abort generalizes: a non-object `hooks`, a non-array `hooks.<Event>`, and junk entries inside an event array are all refused or passed through, never replaced. An array `hooks` was the sharp case — string keys assigned onto it vanish from `JSON.stringify`, so the write committed and reported `installed: true` over a file with no hooks in it. Emptied event keys are deleted only when _our_ removal emptied them. **Internal sentinels must not be values user JSON can hold**: `null` marked "this entry is now empty", so a user-authored `null` inside a hooks array was silently deleted — it is a `Symbol` now.
+- **Hook identity is anchored at both ends, not a substring.** `includes('claude-office-hook.js') && includes('.claude-office')` would claim — and `uninstallHooks` would then DELETE — a `.backup` copy of our script, a shell comment naming our path, a wrapper passing it as an argument, `/opt/evil.claude-office/hooks/claude-office-hook.js`, and `my-claude-office-hook.js`. Ours = the `/.claude-office/hooks/claude-office-hook.js` suffix, ending the command's FIRST token, matched **case-insensitively** (the token is normalized to lower case). On the case-insensitive volumes this runs on (macOS, Windows) a differently-cased path is the SAME INODE as our script and genuinely firing: case-sensitive matching made reinstall append a duplicate and uninstall leave the cased entry as an orphan `areHooksInstalled` could no longer see — a live hook with no removal route. The folding is unconditional (no filesystem case-sensitivity probe), so the accepted trade is a Linux-only false positive that is **not** a mere dedup: on a case-sensitive volume `~/.Claude-Office/hooks/claude-office-hook.js` is a genuinely DIFFERENT file, we classify it as ours, and uninstall **deletes** it (`claudeHookInstaller.test.ts` pins that removal). Nothing creates that path, and the trade is deliberate. A symlink alias to our script is deliberately _not_ recognized — the cost is one duplicate entry, versus deleting a stranger's hook if we resolved paths.
+- **E2E over webview unit tests**: e2e pins user-facing behavior, which is stable across internal refactors.
 
 ## Project Identity
 
-- Extension ID: `pablodelucca.claude-office` (VS Code Marketplace + Open VSX)
-- npm package: `claude-office` (CLI bin: `claude-office`)
-- GitHub: `https://github.com/pixel-agents-hq/pixel-agents`
-- License: MIT
+- npm package: `claude-office` (private, not published; CLI bin `claude-office`)
+- GitHub: `https://github.com/andresgmg/claude-office` (fork of `https://github.com/pixel-agents-hq/pixel-agents`)
+- State directory: `~/.claude-office/`; env vars: `CLAUDE_OFFICE_TOKEN`, `CLAUDE_OFFICE_VERSION` (build-time define)
+- License: MIT (upstream copyright preserved in `LICENSE`)
