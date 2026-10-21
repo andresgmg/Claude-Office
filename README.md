@@ -1,5 +1,7 @@
 # Claude Office
 
+Oficina virtual de tus agentes de Claude.
+
 Oficina virtual en pixel art (vista cenital, estilo Pokémon) donde tus agentes Claude aparecen
 como personajes animados. Cada sesión de Claude Code es un personaje: camina hasta su
 escritorio, teclea cuando edita archivos, lee cuando busca y te avisa con una burbuja cuando
