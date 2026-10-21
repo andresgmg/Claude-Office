@@ -23,7 +23,7 @@ info:
     name: MIT
   contact:
     name: Claude Office
-    url: https://github.com/andresgmg/claude-office
+    url: https://github.com/andresgmg/Claude-Office
 
 servers:
   local:

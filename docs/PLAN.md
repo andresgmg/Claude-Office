@@ -32,7 +32,7 @@ y tus agentes propios con el Agent SDK.
 | -------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Agentes a mostrar    | Claude Code local (terminal/IDE), Claude Code en la web (cloud) y agentes propios con Agent SDK. Sin otros CLIs: 100% Claude.                                                                                                                                                                      |
 | Base                 | Fork de `pixel-agents-hq/pixel-agents`.                                                                                                                                                                                                                                                            |
-| Dónde vive el código | Repositorio privado `andresgmg/claude-office`, con el historial completo de pixel-agents v1.4.1 para poder hacer `git merge upstream/main`.                                                                                                                                                        |
+| Dónde vive el código | Repositorio privado `andresgmg/Claude-Office`, con el historial completo de pixel-agents v1.4.1 para poder hacer `git merge upstream/main`.                                                                                                                                                        |
 | v1 debe mostrar      | Actividad en vivo, subagentes y equipos, proyecto/rama/contexto, clic para ver detalle.                                                                                                                                                                                                            |
 | Sesiones cloud       | Local primero. El servidor nace preparado para hooks remotos con token; las sesiones cloud aparecen en la fase 2.                                                                                                                                                                                  |
 | Hosting fase 2       | Por decidir. El plan usa Docker genérico.                                                                                                                                                                                                                                                          |
@@ -166,7 +166,7 @@ el salto de red WSL→Windows). Lo mismo al revés.
 
 1. ✅ Clon con el historial completo de `pixel-agents-hq/pixel-agents` (v1.4.1) y remoto
    `upstream` configurado, para poder hacer `git merge upstream/main`.
-2. ⏳ Crear en GitHub el repositorio privado y vacío `andresgmg/claude-office`, dar acceso a
+2. ⏳ Crear en GitHub el repositorio privado y vacío `andresgmg/Claude-Office`, dar acceso a
    la app de Claude y subir el historial. Lo hace el dueño: la app no tiene permiso para
    crear repositorios.
 

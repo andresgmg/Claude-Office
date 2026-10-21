@@ -596,6 +596,6 @@ Inherited from upstream and still true:
 ## Project Identity
 
 - npm package: `claude-office` (private, not published; CLI bin `claude-office`)
-- GitHub: `https://github.com/andresgmg/claude-office` (fork of `https://github.com/pixel-agents-hq/pixel-agents`)
+- GitHub: `https://github.com/andresgmg/Claude-Office` (fork of `https://github.com/pixel-agents-hq/pixel-agents`)
 - State directory: `~/.claude-office/`; env vars: `CLAUDE_OFFICE_TOKEN`, `CLAUDE_OFFICE_VERSION` (build-time define)
 - License: MIT (upstream copyright preserved in `LICENSE`)

@@ -56,7 +56,7 @@ El plan completo, las decisiones tomadas y el estado de cada punto están en
 En PowerShell (Windows):
 
 ```powershell
-git clone https://github.com/andresgmg/claude-office.git
+git clone https://github.com/andresgmg/Claude-Office.git
 cd claude-office
 npm install
 npm run build

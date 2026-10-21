@@ -5,7 +5,7 @@
   "private": true,
   "repository": {
     "type": "git",
-    "url": "https://github.com/andresgmg/claude-office"
+    "url": "https://github.com/andresgmg/Claude-Office"
   },
   "workspaces": [
     "server",

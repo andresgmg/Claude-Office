@@ -15,7 +15,7 @@ The code is licensed under the [MIT License](LICENSE); contributions are too. No
 ### Setup
 
 ```bash
-git clone https://github.com/andresgmg/claude-office.git
+git clone https://github.com/andresgmg/Claude-Office.git
 cd claude-office
 npm install
 npm run build

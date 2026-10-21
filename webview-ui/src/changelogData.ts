@@ -21,7 +21,7 @@ export function toMajorMinor(version: string): string {
   return parts.length >= 2 ? `${parts[0]}.${parts[1]}` : version;
 }
 
-export const CHANGELOG_REPO_URL = 'https://github.com/andresgmg/claude-office';
+export const CHANGELOG_REPO_URL = 'https://github.com/andresgmg/Claude-Office';
 
 export const DISCORD_INVITE_URL = 'https://discord.gg/Yk7jXebv9H';
 
