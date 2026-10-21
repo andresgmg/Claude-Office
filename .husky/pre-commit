@@ -1,0 +1,22 @@
+#!/bin/sh
+set -e
+
+# Secret scan of staged files. gitleaks is recommended, not required: when it
+# is missing the scan is skipped with a warning instead of blocking the commit.
+#   macOS: brew install gitleaks | Windows: scoop install gitleaks
+#   Linux: https://github.com/gitleaks/gitleaks#installing
+if command -v gitleaks > /dev/null 2>&1; then
+  echo "🔒 Scanning staged files for secrets..."
+  if ! gitleaks protect --staged --verbose; then
+    echo ""
+    echo "❌ Secret(s) detected in staged files. Remove them (use environment"
+    echo "   variables instead) or, for a false positive, extend .gitleaks.toml."
+    exit 1
+  fi
+  echo "✅ No secrets detected"
+else
+  echo "⚠️  gitleaks not installed — skipping secret scan (see .husky/pre-commit)."
+fi
+
+echo "🎨 Formatting staged files..."
+npm exec -- lint-staged

@@ -1,0 +1,108 @@
+{
+  "name": "claude-office",
+  "description": "Pixel-art virtual office that shows your Claude agents at work. Web-only fork of pixel-agents.",
+  "version": "0.1.0",
+  "private": true,
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/andresgmg/Claude-Office"
+  },
+  "workspaces": [
+    "server",
+    "webview-ui"
+  ],
+  "license": "MIT",
+  "engines": {
+    "node": ">=20"
+  },
+  "bin": {
+    "claude-office": "./dist/cli.js"
+  },
+  "files": [
+    "CHANGELOG.md",
+    "LICENSE",
+    "dist/cli.js",
+    "dist/hooks/claude-office-hook.js",
+    "dist/assets/",
+    "dist/webview/"
+  ],
+  "scripts": {
+    "start": "node dist/cli.js",
+    "prepack": "npm run package",
+    "build:webview": "cd webview-ui && npm run build",
+    "compile": "npm run asyncapi:generate && npm run check-types && npm run lint && node esbuild.js && npm run build:webview",
+    "build": "npm run compile",
+    "watch": "npm-run-all -p watch:*",
+    "watch:esbuild": "node esbuild.js --watch",
+    "watch:tsc": "tsc --noEmit --watch --project tsconfig.json",
+    "package": "npm run asyncapi:generate && npm run check-types && npm run lint && node esbuild.js --production && npm run build:webview",
+    "asyncapi:generate": "tsx scripts/generate-messages.ts",
+    "asyncapi:validate": "node scripts/validate-asyncapi.mjs",
+    "check-types": "tsc --noEmit && tsc --noEmit -p server/tsconfig.test.json",
+    "prepare": "husky",
+    "lint": "eslint server core && cd webview-ui && eslint .",
+    "lint:fix": "eslint server core --fix && cd webview-ui && eslint . --fix",
+    "format": "prettier --write \"server/**/*.ts\" \"core/src/**/*.ts\" \"webview-ui/src/**/*.{ts,tsx,css}\" \"*.{js,mjs}\" \"webview-ui/*.{js,ts}\"",
+    "format:check": "prettier --check \"server/**/*.ts\" \"core/src/**/*.ts\" \"webview-ui/src/**/*.{ts,tsx,css}\" \"*.{js,mjs}\" \"webview-ui/*.{js,ts}\"",
+    "test:webview": "cd webview-ui && npm test",
+    "test:server": "cd server && npm test",
+    "test:package-contract": "node --test scripts/npm-package-contract.test.mjs",
+    "test": "npm run test:webview && npm run test:server && npm run test:package-contract",
+    "verify:npm-package": "node scripts/verify-npm-package.mjs",
+    "e2e": "node scripts/run-e2e.mjs",
+    "e2e:debug": "node scripts/run-e2e.mjs --debug",
+    "e2e:inventory": "node scripts/generate-e2e-inventory.mjs",
+    "test:report": "node scripts/build-allure-report.mjs",
+    "test:report:open": "allure open allure-report/allure",
+    "e2e:report": "npm run test:report",
+    "knip": "knip"
+  },
+  "devDependencies": {
+    "@asyncapi/modelina": "^5.10.1",
+    "@asyncapi/parser": "^3.6.0",
+    "@playwright/test": "^1.58.2",
+    "@types/node": "26.x",
+    "@types/pngjs": "^6.0.5",
+    "allure-commandline": "^2.38.1",
+    "allure-playwright": "^3.7.1",
+    "esbuild": "^0.28.0",
+    "eslint": "^10.0.3",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-simple-import-sort": "^14.0.0",
+    "husky": "^9.1.7",
+    "knip": "^6.3.0",
+    "lint-staged": "^16.3.2",
+    "npm-run-all": "^4.1.5",
+    "pngjs": "^7.0.0",
+    "prettier": "^3.8.1",
+    "semver": "^7.8.5",
+    "tsx": "^4.21.0",
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.54.0"
+  },
+  "lint-staged": {
+    "server/**/*.ts": "eslint --fix",
+    "core/src/**/*.ts": "eslint --fix",
+    "webview-ui/src/**/*.{ts,tsx}": "eslint --fix",
+    "scripts/**/*.{js,mjs}": "prettier --write",
+    "*.{ts,tsx,js,mjs,css,json,md}": "prettier --write",
+    "webview-ui/**/*.{ts,tsx,js,css,json}": "prettier --write"
+  },
+  "dependencies": {
+    "@fastify/cors": "^11.2.0",
+    "@fastify/static": "^10.1.2",
+    "@fastify/websocket": "^11.2.0",
+    "fastify": "^5.8.5"
+  },
+  "overrides": {
+    "jsonpath-plus": "^10.4.0",
+    "brace-expansion": "^5.0.9",
+    "minimatch": "^10.1.1",
+    "json-schema-migrate": {
+      "ajv": "^6.15.0"
+    },
+    "webapi-parser": {
+      "ajv": "^6.15.0"
+    }
+  }
+}
