@@ -28,6 +28,7 @@ const debug = process.env.CLAUDE_OFFICE_DEBUG !== '0';
 
 import type { HookProvider } from '../../core/src/provider.js';
 import type { TeamProvider } from '../../core/src/teamProvider.js';
+import { broadcastAgentDetails, noteCwd } from './agentDetails.js';
 import type { AgentStateStore } from './agentStateStore.js';
 import {
   DEFAULT_MAX_CONTEXT_TOKENS,
@@ -791,6 +792,11 @@ export function adoptExternalSessionFromHook(
     if (adoptedAgent) {
       adoptedAgent.sessionId = sessionId;
       adoptedAgent.hookDelivered = true;
+      // The hook's cwd is the session's real working directory (the transcript's
+      // project dir is only its hashed name): it drives the branch label.
+      if (noteCwd(adoptedAgent, cwd || undefined)) {
+        broadcastAgentDetails(agents, adoptedAgent.id);
+      }
       onAgentCreated?.(adoptedAgent);
     }
   } else {
@@ -824,8 +830,11 @@ export function adoptExternalSessionFromHook(
       maxContextTokens: DEFAULT_MAX_CONTEXT_TOKENS,
     };
     assignPaletteIfNeeded(agent, agents);
+    noteCwd(agent, cwd || undefined);
     agents.set(id, agent);
     persistAgents();
+    // agentCreated went out on set(); the details (cwd, branch) follow it.
+    broadcastAgentDetails(agents, id);
     if (debug) {
       console.log(
         `[Claude Office] Hook: Agent ${id} - detected hooks-only external session${folderName ? ` (${folderName})` : ''}`,

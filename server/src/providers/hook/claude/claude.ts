@@ -287,6 +287,52 @@ export function contextWindowForModel(model: string | undefined): number | undef
     : CLAUDE_LARGE_CONTEXT_WINDOW;
 }
 
+// ── Tool input gist (detail panel) ──
+
+/** The one string in a tool call's input worth showing next to the tool name:
+ *  the command, the file, the pattern, the url, the spawn's description. Falls
+ *  back to the first non-empty string field of an unknown (e.g. MCP) tool. */
+function summarizeToolInput(toolName: string, input?: unknown): string | undefined {
+  const fields = (typeof input === 'object' && input !== null ? input : {}) as Record<
+    string,
+    unknown
+  >;
+  const str = (key: string): string | undefined => {
+    const value = fields[key];
+    return typeof value === 'string' && value.length > 0 ? value : undefined;
+  };
+  switch (toolName) {
+    case 'Bash':
+      return str('command');
+    case 'Read':
+    case 'Write':
+    case 'Edit':
+    case 'MultiEdit':
+      return str('file_path');
+    case 'NotebookEdit':
+      return str('notebook_path');
+    case 'Grep':
+    case 'Glob': {
+      const pattern = str('pattern');
+      const dir = str('path');
+      return pattern && dir ? `${pattern} in ${dir}` : (pattern ?? dir);
+    }
+    case 'WebFetch':
+      return str('url');
+    case 'WebSearch':
+      return str('query');
+    case 'Task':
+    case 'Agent':
+      return str('description') ?? str('prompt');
+    case 'Skill':
+      return str('skill');
+    default: {
+      const first = Object.values(fields).find((v) => typeof v === 'string' && v.length > 0);
+      return typeof first === 'string' ? first : undefined;
+    }
+  }
+}
+
 // ── The provider ──
 
 export const claudeProvider: HookProvider = {
@@ -303,6 +349,7 @@ export const claudeProvider: HookProvider = {
   consentDisclosure,
 
   formatToolStatus,
+  summarizeToolInput,
   permissionExemptTools: new Set(['Task', 'Agent', 'AskUserQuestion']),
   subagentToolNames: new Set(['Task', 'Agent']),
   readingTools: new Set(['Read', 'Grep', 'Glob', 'WebFetch', 'WebSearch']),

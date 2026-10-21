@@ -32,8 +32,14 @@ function createTestAgent(overrides: Partial<AgentState> = {}): AgentState {
   } as AgentState;
 }
 
+/** Every agent's replay ends with its agentDetails message; the activity
+ *  assertions below look at what comes before it. */
+function activityOnly(sent: Array<Record<string, unknown>>): Array<Record<string, unknown>> {
+  return sent.filter((m) => m.type !== 'agentDetails');
+}
+
 describe('resendAgentActivity', () => {
-  it('sends messages in order: team info, tools, waiting, context', () => {
+  it('sends messages in order: team info, tools, waiting, context, details', () => {
     const store = new AgentStateStore();
     store.set(
       1,
@@ -54,6 +60,30 @@ describe('resendAgentActivity', () => {
       'agentToolStart',
       'agentStatus',
       'agentContextUsage',
+      'agentDetails',
+    ]);
+  });
+
+  it('ends every agent replay with its details', () => {
+    const store = new AgentStateStore();
+    store.set(
+      1,
+      createTestAgent({ id: 1, sessionId: 's-1', cwd: '/work/repo', gitBranch: 'main' }),
+    );
+    store.set(2, createTestAgent({ id: 2, sessionId: 's-2', hooksOnly: true, jsonlFile: '' }));
+    const sent: Array<Record<string, unknown>> = [];
+    resendAgentActivity((msg) => sent.push(msg), store);
+
+    expect(sent).toEqual([
+      {
+        type: 'agentDetails',
+        id: 1,
+        sessionId: 's-1',
+        cwd: '/work/repo',
+        gitBranch: 'main',
+        transcriptPath: '/test/session.jsonl',
+      },
+      { type: 'agentDetails', id: 2, sessionId: 's-2' },
     ]);
   });
 
@@ -70,8 +100,9 @@ describe('resendAgentActivity', () => {
     const sent: Array<Record<string, unknown>> = [];
     resendAgentActivity((msg) => sent.push(msg), store);
 
-    expect(sent).toHaveLength(1);
-    expect(sent[0]).toEqual({
+    const activity = activityOnly(sent);
+    expect(activity).toHaveLength(1);
+    expect(activity[0]).toEqual({
       type: 'agentToolStart',
       id: 1,
       toolId: 'tool-1',
@@ -150,7 +181,7 @@ describe('resendAgentActivity', () => {
     store.set(1, createTestAgent({ id: 1, teamName: 'my-team' }));
     let sent: Array<Record<string, unknown>> = [];
     resendAgentActivity((msg) => sent.push(msg), store);
-    expect(sent).toHaveLength(1);
+    expect(activityOnly(sent)).toHaveLength(1);
     expect(sent[0]).toMatchObject({ type: 'agentTeamInfo', id: 1, teamName: 'my-team' });
 
     // agentName trigger (derived team)
@@ -158,7 +189,7 @@ describe('resendAgentActivity', () => {
     store.set(2, createTestAgent({ id: 2, agentName: 'worker-1', leadAgentId: 1 }));
     sent = [];
     resendAgentActivity((msg) => sent.push(msg), store);
-    expect(sent).toHaveLength(1);
+    expect(activityOnly(sent)).toHaveLength(1);
     expect(sent[0]).toMatchObject({ type: 'agentTeamInfo', id: 2, agentName: 'worker-1' });
 
     // isTeamLead trigger
@@ -166,7 +197,7 @@ describe('resendAgentActivity', () => {
     store.set(3, createTestAgent({ id: 3, isTeamLead: true }));
     sent = [];
     resendAgentActivity((msg) => sent.push(msg), store);
-    expect(sent).toHaveLength(1);
+    expect(activityOnly(sent)).toHaveLength(1);
     expect(sent[0]).toMatchObject({ type: 'agentTeamInfo', id: 3, isTeamLead: true });
 
     // No team fields: no message
@@ -182,13 +213,13 @@ describe('resendAgentActivity', () => {
     store.set(1, createTestAgent({ id: 1, isWaiting: true }));
     let sent: Array<Record<string, unknown>> = [];
     resendAgentActivity((msg) => sent.push(msg), store);
-    expect(sent).toEqual([{ type: 'agentStatus', id: 1, status: 'waiting' }]);
+    expect(activityOnly(sent)).toEqual([{ type: 'agentStatus', id: 1, status: 'waiting' }]);
 
     store = new AgentStateStore();
     store.set(2, createTestAgent({ id: 2, isWaiting: false }));
     sent = [];
     resendAgentActivity((msg) => sent.push(msg), store);
-    expect(sent).toHaveLength(0);
+    expect(activityOnly(sent)).toHaveLength(0);
   });
 
   it('sends context usage only when agent has tokens', () => {
@@ -196,7 +227,7 @@ describe('resendAgentActivity', () => {
     store.set(1, createTestAgent({ id: 1, contextTokens: 50_000, maxContextTokens: 200_000 }));
     let sent: Array<Record<string, unknown>> = [];
     resendAgentActivity((msg) => sent.push(msg), store);
-    expect(sent).toEqual([
+    expect(activityOnly(sent)).toEqual([
       { type: 'agentContextUsage', id: 1, contextTokens: 50_000, maxContextTokens: 200_000 },
     ]);
 
@@ -204,7 +235,7 @@ describe('resendAgentActivity', () => {
     store.set(2, createTestAgent({ id: 2, contextTokens: 0, maxContextTokens: 200_000 }));
     sent = [];
     resendAgentActivity((msg) => sent.push(msg), store);
-    expect(sent).toHaveLength(0);
+    expect(activityOnly(sent)).toHaveLength(0);
   });
 
   it('handles edge cases: empty store and multiple agents', () => {
@@ -227,8 +258,9 @@ describe('resendAgentActivity', () => {
     store.set(2, createTestAgent({ id: 2, isWaiting: true }));
     sent = [];
     resendAgentActivity((msg) => sent.push(msg), store);
-    expect(sent).toHaveLength(2);
-    expect(sent[0]).toMatchObject({ type: 'agentToolStart', id: 1 });
-    expect(sent[1]).toMatchObject({ type: 'agentStatus', id: 2, status: 'waiting' });
+    const activity = activityOnly(sent);
+    expect(activity).toHaveLength(2);
+    expect(activity[0]).toMatchObject({ type: 'agentToolStart', id: 1 });
+    expect(activity[1]).toMatchObject({ type: 'agentStatus', id: 2, status: 'waiting' });
   });
 });

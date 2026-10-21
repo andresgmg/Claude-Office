@@ -38,6 +38,18 @@ export const CONTEXT_WINDOW_TIERS = [200_000, 1_000_000] as const;
  *  adoption or restore. Comfortably more than one turn's worth of records. */
 export const CONTEXT_SEED_TAIL_BYTES = 256 * 1024;
 
+// ── Agent details (project label + detail panel) ───────────
+/** How often every agent's git branch is re-read from its working directory. */
+export const GIT_BRANCH_REFRESH_INTERVAL_MS = 30_000;
+/** How many parent directories readGitBranch walks up looking for `.git`. */
+export const GIT_DIR_SEARCH_MAX_DEPTH = 32;
+/** Longest assistant text kept for the detail panel. */
+export const DETAILS_ASSISTANT_TEXT_MAX_LENGTH = 600;
+/** Longest user prompt kept for the detail panel. */
+export const DETAILS_USER_PROMPT_MAX_LENGTH = 300;
+/** Longest tool-input gist kept for the detail panel. */
+export const DETAILS_TOOL_SUMMARY_MAX_LENGTH = 160;
+
 // ── Global Session Scanning ─────────────────────────────────
 /** Only adopt global JSONL files larger than this (filters out empty/init-only sessions) */
 export const GLOBAL_SCAN_ACTIVE_MIN_SIZE = 3_072; // 3KB

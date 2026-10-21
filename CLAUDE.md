@@ -41,8 +41,10 @@ server/                              Lifecycle runtime + Fastify HTTP/WS server 
     dismissalTracker.ts              Unified dismissal state (replaces four legacy globals)
     hookEventHandler.ts              Dispatches normalized AgentEvent into runtime
     subagentWatch.ts                 Shadow store watching unnamed background spawns' transcripts
-    agentActivityResend.ts           Re-sends live tool state to a client that connects mid-work
+    agentActivityResend.ts           Re-sends live tool state (+ agentDetails) to a client that connects mid-work
     agentDiagnostics.ts              Debug View payload (transcript path, offsets, latest records)
+    agentDetails.ts                  Project label + detail panel: cwd, git branch, newest tool, last messages → agentDetails
+    gitBranch.ts                     .git/HEAD reader (walks up, worktree-aware, no subprocess)
     contextUsage.ts                  Context gauge: snapshot from message.usage against the provider's window
     paletteAssigner.ts               Server-side palette + hue assignment at agent creation
     httpServer.ts                    Fastify: POST /api/hooks/:providerId, GET /api/health, GET /ws, SPA
@@ -60,8 +62,8 @@ server/                              Lifecycle runtime + Fastify HTTP/WS server 
     teamUtils.ts                     isInlineTeammateOf, getInlineTeammates, hasInlineTeammates
     pathKey.ts                       Case/separator-insensitive path keys (Windows-safe)
     types.ts                         ServerAgentState
-    constants.ts                     All timing/scanning constants, TOKEN_ENV_VAR, MIN_AUTH_TOKEN_LENGTH
-  __tests__/                         28 Vitest files
+    constants.ts                     All timing/scanning constants, TOKEN_ENV_VAR, MIN_AUTH_TOKEN_LENGTH, detail-panel limits
+  __tests__/                         30 Vitest files
   manual-hook-events.http            Manual hook testing helper (REST-Client format)
 
 webview-ui/                          React 19 + Canvas UI (depends only on core/)
@@ -80,16 +82,19 @@ webview-ui/                          React 19 + Canvas UI (depends only on core/
     changelogData.ts                 Changelog modal content (fork entries only)
     components/                      React UI
       BottomToolbar.tsx (Layout + Settings), SettingsModal.tsx, IntroBubble.tsx, ChangelogModal.tsx,
-      ConnectionIndicator.tsx, DebugView.tsx, EditActionBar.tsx, VersionIndicator.tsx,
-      VisualColorPicker.tsx, ZoomControls.tsx, Tooltip.tsx, ui/Button.tsx
+      AgentDetailPanel.tsx (side panel for the selected agent), ConnectionIndicator.tsx, DebugView.tsx,
+      EditActionBar.tsx, VersionIndicator.tsx, VisualColorPicker.tsx, ZoomControls.tsx, Tooltip.tsx,
+      formatTimeAgo.ts, ui/Button.tsx
     hooks/
       useExtensionMessages.ts        Message handler — translates ServerMessage into OfficeState mutations
+      useSelectedAgentId.ts          Mirrors OfficeState.selectedAgentId into React (rAF-sampled)
       useEditorActions.ts            Editor state + callbacks
       useEditorKeyboard.ts           Keyboard shortcuts (R, T, Esc, Ctrl+Z/Y)
       introTourState.ts              Intro tour wire-state machine (pure reducer, Node-runner tested)
       useIntroTour.ts                Wires the reducer to React + transport (snapshot, verdict, choices)
     office/
       types.ts                       OfficeLayout, Character, etc. + re-exports constants
+      activityLabel.ts               getActivityText / getFuelColor shared by the overlay and the detail panel
       toolUtils.ts                   STATUS_TO_TOOL mapping, extractToolName (DOM-free)
       projection.ts                  World→screen math shared by renderer + DOM overlays
       colorize.ts                    Colorize (grayscale→HSL) + Adjust (HSL shift)
@@ -109,7 +114,7 @@ e2e/                                 Playwright suite against the real CLI (stan
     mock-claude-runner.cjs           Scenario runner: appendJsonl, emitHook, holdOpen
     tail-follow.cjs                  Follows a file for scenario timing
   helpers/                           standalone.ts, hooks.ts, intro.ts, office.ts, webview.ts, editor.ts, layout-seed.ts, allure-labels.ts
-  tests/standalone/                  hooks.spec.ts, ui.spec.ts (10 tests, @area:standalone)
+  tests/standalone/                  hooks.spec.ts, ui.spec.ts (11 tests, @area:standalone)
   README.md                          Auto-generated test inventory (regen via npm run e2e:inventory)
 
 scripts/
@@ -161,7 +166,7 @@ The fork is Claude-only by decision. The provider seam (`server/src/providers/ho
 
 `core/asyncapi.yaml` is the contract. Pinned to **3.0.0** because `@asyncapi/modelina@5.10.1` declares `supportedVersions: ['3.0.0']` only; bumping to 3.1.0 produces `export type Root = any`. Revisit when Modelina ships 3.1.0 support.
 
-- **29 ServerMessage variants** (server → client): `providerCapabilities`, agent lifecycle (`agentCreated`, `agentClosed`, `existingAgents`, `agentStatus`), agent activity (`agentToolStart/Done/sClear`, `agentToolPermission/Clear`), sub-agent activity (`subagentToolStart/Done`, `subagentClear`, `subagentToolPermission`), `agentTeamInfo`, `agentContextUsage`, assets (`layoutLoaded`, `furnitureAssetsLoaded`, `characterSpritesLoaded`, `petSpritesLoaded`, `floorTilesLoaded`, `wallTilesLoaded`, `carpetTilesLoaded`, `externalAssetDirectoriesUpdated`), settings (`settingsLoaded`, `hooksStatus`, `hooksConsentRequest`, `areaMappingsLoaded`), `agentDiagnostics`.
+- **30 ServerMessage variants** (server → client): `providerCapabilities`, agent lifecycle (`agentCreated`, `agentClosed`, `existingAgents`, `agentStatus`), agent activity (`agentToolStart/Done/sClear`, `agentToolPermission/Clear`), sub-agent activity (`subagentToolStart/Done`, `subagentClear`, `subagentToolPermission`), `agentTeamInfo`, `agentContextUsage`, `agentDetails` (cwd, branch, newest tool, last messages — on connect and on change), assets (`layoutLoaded`, `furnitureAssetsLoaded`, `characterSpritesLoaded`, `petSpritesLoaded`, `floorTilesLoaded`, `wallTilesLoaded`, `carpetTilesLoaded`, `externalAssetDirectoriesUpdated`), settings (`settingsLoaded`, `hooksStatus`, `hooksConsentRequest`, `areaMappingsLoaded`), `agentDiagnostics`.
 - **16 ClientMessage variants** (client → server): `webviewReady`, `closeAgent`, layout (`saveAgentSeats`, `saveLayout`, `saveAreaMappings`, `setShowAreas`), settings (`setSoundEnabled`, `setHooksEnabled`, `hooksConsentResponse`, `setWatchAllSessions`, `setAlwaysShowLabels`, `setHooksInfoShown`, `setLastSeenVersion`), assets (`addExternalAssetDirectory` with a required `path`, `removeExternalAssetDirectory`), `requestDiagnostics`.
 
 The IDE-only messages of the upstream protocol (`agentSelected`, `workspaceFolders`, `launchAgent`, `focusAgent`, `exportLayout`, `importLayout`, `openSessionsFolder`, `setGhostHeadlessAgents`) and the `wasReset` / `ghostHeadlessAgents` fields were removed; layout export/import happens in the browser. `isExternal` / `externalAgents` are still sent (always true here) but no longer read by the webview.
@@ -233,7 +238,7 @@ export class AgentRuntime {
   constructor(store: AgentStateStore, provider: HookProvider);
   registerAgent / unregisterAgent / removeAgent / removeTeammate / removeTeammates
   restoreExternalAgents / handleHookEvent
-  startProjectScan(projectDir) / startExternalScanning(projectDir) / startStaleCheck()
+  startProjectScan(projectDir) / startExternalScanning(projectDir) / startStaleCheck() / startBranchRefresh()
   dispose();
 }
 ```
@@ -276,7 +281,7 @@ Single dispatch point for `ClientMessage`. Each variant calls into `AgentRuntime
 
 ### ServerAgentState (server/src/types.ts)
 
-Per-agent runtime data: provider reference, session key, transcript-fallback fields (`jsonlFile`, `fileOffset`, `lineBuffer`), tool state Maps and Sets, team fields (`teamName`, `agentName`, `isTeamLead`, `leadAgentId`, `teamUsesTmux`), context usage (`contextTokens`, `maxContextTokens`, `sawMainChainUsage`), and the **`hookDelivered`** flag that suppresses heuristic timers when hooks are flowing. Every agent is external (adopted); there is no terminal reference.
+Per-agent runtime data: provider reference, session key, transcript-fallback fields (`jsonlFile`, `fileOffset`, `lineBuffer`), tool state Maps and Sets, team fields (`teamName`, `agentName`, `isTeamLead`, `leadAgentId`, `teamUsesTmux`), context usage (`contextTokens`, `maxContextTokens`, `sawMainChainUsage`), the detail-panel fields (`cwd`, `cwdIsLocal`, `gitBranch`, `model`, `lastTool`, `lastAssistantText`, `lastUserPrompt`, `lastActivityAt` — transient, never persisted), and the **`hookDelivered`** flag that suppresses heuristic timers when hooks are flowing. Every agent is external (adopted); there is no terminal reference.
 
 ## Persistence
 
@@ -358,6 +363,8 @@ Custom ESLint rules (`eslint-rules/claude-office-rules.mjs`, prefix `claude-offi
 
 **Areas**: named tile regions mapped to project folders (`saveAreaMappings`); the folder list the Settings modal offers is derived from the tracked agents' folder names (`agentFolderNames`), since there is no IDE workspace to enumerate.
 
+**Project label and detail panel** (`server/src/agentDetails.ts`, `webview-ui/src/components/AgentDetailPanel.tsx`): the overlay's project line reads `folder · branch`, and selecting a character (click, Debug View, `testHooks.selectAgent`) opens a right-hand panel with project, branch, path, model, context gauge, newest tool call with the provider's gist of its input (`summarizeToolInput`), the last assistant message and user prompt, session id and transcript path. The panel follows `OfficeState.selectedAgentId` through `useSelectedAgentId` (rAF-sampled, re-renders only on change) and closes with the selection; a selected sub-agent shows its parent. Data flow: hooks carry `cwd` on every payload and the tool call on `PreToolUse`; transcript records carry `cwd`, `gitBranch`, `message.model`, text blocks (main chain only — `isSidechain` records are sub-agents') and prompts (`user` records without `tool_result`, not `isMeta`). The branch is read from `.git/HEAD` (`gitBranch.ts`: walks up, follows worktree `gitdir:` files, short SHA when detached) when `cwd` exists on this machine, re-read every 30 s by `AgentRuntime.startBranchRefresh`; otherwise the transcript's reported branch is used — locality is a heuristic, a remote session whose path also exists here shows the local branch. Everything travels in one `agentDetails` message, broadcast on change and replayed on connect by `resendAgentActivity`.
+
 ## Layout Editor
 
 Toggle via "Layout" button. Tools: SELECT (default), Floor paint, Wall paint, Erase (set tiles to VOID), Furniture place, Furniture pick (eyedropper for furniture type), Eyedropper (floor).
@@ -438,6 +445,8 @@ Three tiers, each with its own framework. There is no CI: run them locally befor
 | `cli.test.ts`                  | `parseArgs` (port/host/token/env), token validation, spawned CLI with and without Bearer                                                       |
 | `server.test.ts`               | HTTP lifecycle, auth, `/ws`, broadcast, reuse of a running server, registry pruning                                                            |
 | `httpServerWs.test.ts`         | `/ws` gate: same-origin handshake, `?token=` privilege                                                                                         |
+| `agentDetails.test.ts`         | Tool gist, text truncation, cwd/branch (local vs remote), `agentDetails` from the hook path and from transcript records                        |
+| `gitBranch.test.ts`            | `.git/HEAD` reader: branch, detached SHA, parent walk, worktree `gitdir` files, non-repos                                                      |
 | `mockClaudeRunner.test.ts`     | E2E scenario runner sanity                                                                                                                     |
 
 Run: `npm run test:server` (or `npm test` for all three tiers). Known environment quirk: "rejects when the .claude directory is not writable" (`claudeHookInstaller.test.ts`) fails when the suite runs as root, because root ignores file modes; it is skipped on Windows and passes as a normal user.
@@ -452,7 +461,7 @@ Run: `npm run test:server` (or `npm test` for all three tiers). Known environmen
 
 ### End-to-end (Playwright)
 
-`e2e/tests/standalone/` holds 10 tests (`@area:standalone`) against the real `dist/cli.js`: each test spawns the server with an isolated `HOME` and workspace, opens the printed URL in Playwright's Chromium and drives the public seams — the hook endpoint, the SPA and the files written under `HOME`. Build first (`npm run build`); Playwright downloads its Chromium on first use (`npx playwright install chromium`). The generated [e2e inventory](e2e/README.md) is the source of truth for current specs and the normative **test model & rules**; read it before adding a spec.
+`e2e/tests/standalone/` holds 11 tests (`@area:standalone`) against the real `dist/cli.js`: each test spawns the server with an isolated `HOME` and workspace, opens the printed URL in Playwright's Chromium and drives the public seams — the hook endpoint, the SPA and the files written under `HOME`. Build first (`npm run build`); Playwright downloads its Chromium on first use (`npx playwright install chromium`). The generated [e2e inventory](e2e/README.md) is the source of truth for current specs and the normative **test model & rules**; read it before adding a spec.
 
 **Mock claude**: tests never invoke real `claude`. `e2e/fixtures/mock-claude-runner.cjs` honors `claudeScenario(...).at(ms).appendJsonl(record).emitHook(event).holdOpenFor(ms).build()` to drive timed JSONL writes and hook events from a separate process.
 

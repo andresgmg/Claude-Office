@@ -3,31 +3,19 @@ import { useEffect, useState } from 'react';
 import { Button } from '../../components/ui/Button.js';
 import {
   CHARACTER_SITTING_OFFSET_PX,
-  CONTEXT_CRITICAL_THRESHOLD,
-  CONTEXT_DANGER_THRESHOLD,
   CONTEXT_GAUGE_BG,
-  CONTEXT_GAUGE_COLOR_CRITICAL,
-  CONTEXT_GAUGE_COLOR_DANGER,
-  CONTEXT_GAUGE_COLOR_OK,
-  CONTEXT_GAUGE_COLOR_WARN,
   CONTEXT_GAUGE_HEIGHT_PX,
   CONTEXT_GAUGE_WIDTH_PX,
-  CONTEXT_WARN_THRESHOLD,
   TEAM_LEAD_COLOR,
   TEAM_ROLE_COLOR,
   TOOL_OVERLAY_VERTICAL_OFFSET,
 } from '../../constants.js';
-import type { SubagentCharacter } from '../../hooks/useExtensionMessages.js';
+import type { AgentDetails, SubagentCharacter } from '../../hooks/useExtensionMessages.js';
+import { getActivityText, getFuelColor, WAITING_INPUT_ACTIVITY_TEXT } from '../activityLabel.js';
 import type { OfficeState } from '../engine/officeState.js';
 import { overlayProjection } from '../projection.js';
 import type { ToolActivity } from '../types.js';
 import { CharacterState } from '../types.js';
-
-// Both turn-end states show the green checkmark bubble. A finished turn (Stop)
-// shows ONLY the checkmark (the label falls through to its normal idle text);
-// going idle waiting on the user (Notification(idle_prompt)) additionally
-// surfaces this label. Driven by Character.waitingAwaitingInput.
-const WAITING_INPUT_ACTIVITY_TEXT = 'Waiting for input';
 
 interface ToolOverlayProps {
   officeState: OfficeState;
@@ -35,50 +23,13 @@ interface ToolOverlayProps {
   agentTools: Record<number, ToolActivity[]>;
   subagentTools: Record<number, Record<string, ToolActivity[]>>;
   subagentCharacters: SubagentCharacter[];
+  /** Per-agent detail data; the overlay shows the git branch next to the folder. */
+  agentDetails: Record<number, AgentDetails>;
   containerRef: React.RefObject<HTMLDivElement | null>;
   zoom: number;
   panRef: React.RefObject<{ x: number; y: number }>;
   onCloseAgent: (id: number) => void;
   alwaysShowOverlay: boolean;
-}
-
-/** Derive a short human-readable activity string from tools/status */
-function getActivityText(
-  agentId: number,
-  agentTools: Record<number, ToolActivity[]>,
-  isActive: boolean,
-  bubbleType: 'permission' | 'waiting' | null,
-  waitingAwaitingInput: boolean,
-): string {
-  if (bubbleType === 'permission') return 'Needs approval';
-  // Only the idle case ("Waiting for input") gets a dedicated label. A finished
-  // turn (Stop, waitingAwaitingInput=false) falls through so the checkmark alone
-  // signals "done", same as the original behavior.
-  if (bubbleType === 'waiting' && waitingAwaitingInput) return WAITING_INPUT_ACTIVITY_TEXT;
-
-  const tools = agentTools[agentId];
-  if (tools && tools.length > 0) {
-    // Find the latest non-done tool
-    const activeTool = [...tools].reverse().find((t) => !t.done);
-    if (activeTool) {
-      if (activeTool.permissionWait) return 'Needs approval';
-      return activeTool.status;
-    }
-    // All tools done but agent still active (mid-turn) — keep showing last tool status
-    if (isActive) {
-      const lastTool = tools[tools.length - 1];
-      if (lastTool) return lastTool.status;
-    }
-  }
-
-  return 'Idle';
-}
-
-function getFuelColor(ratio: number): string {
-  if (ratio >= CONTEXT_CRITICAL_THRESHOLD) return CONTEXT_GAUGE_COLOR_CRITICAL;
-  if (ratio >= CONTEXT_DANGER_THRESHOLD) return CONTEXT_GAUGE_COLOR_DANGER;
-  if (ratio >= CONTEXT_WARN_THRESHOLD) return CONTEXT_GAUGE_COLOR_WARN;
-  return CONTEXT_GAUGE_COLOR_OK;
 }
 
 export function ToolOverlay({
@@ -87,6 +38,7 @@ export function ToolOverlay({
   agentTools,
   subagentTools,
   subagentCharacters,
+  agentDetails,
   containerRef,
   zoom,
   panRef,
@@ -203,7 +155,11 @@ export function ToolOverlay({
 
         // Team info
         const teamRoleLabel = ch.isTeamLead ? 'LEAD' : ch.agentName || null;
-        const hasExtraLines = !!(ch.folderName || teamRoleLabel);
+        // Project line: folder, then the branch the server read for this agent.
+        // Sub-agents share their parent's session and carry neither.
+        const gitBranch = isSub ? undefined : agentDetails[id]?.gitBranch;
+        const projectLabel = [ch.folderName, gitBranch].filter(Boolean).join(' · ');
+        const hasExtraLines = !!(projectLabel || teamRoleLabel);
 
         // Context gauge. Every agent gets one — lead, teammate, adopted,
         // headless — as soon as it has taken a turn. Sub-agents never do: they
@@ -254,9 +210,12 @@ export function ToolOverlay({
                 >
                   {activityText}
                 </span>
-                {ch.folderName && (
-                  <span className="text-2xs leading-none overflow-hidden text-ellipsis block">
-                    {ch.folderName}
+                {projectLabel && (
+                  <span
+                    className="text-2xs leading-none overflow-hidden text-ellipsis block"
+                    data-testid="agent-project-label"
+                  >
+                    {projectLabel}
                   </span>
                 )}
               </div>

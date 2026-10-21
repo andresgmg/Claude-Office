@@ -1,6 +1,15 @@
 const debug = process.env.CLAUDE_OFFICE_DEBUG !== '0';
 
 import type { HookProvider } from '../../core/src/provider.js';
+import {
+  buildAgentDetails,
+  noteAssistantText,
+  noteCwd,
+  noteModel,
+  noteToolUse,
+  noteUserPrompt,
+  refreshGitBranch,
+} from './agentDetails.js';
 import type { AgentStateStore } from './agentStateStore.js';
 import { TEXT_IDLE_DELAY_MS, TOOL_DONE_DELAY_MS } from './constants.js';
 import { updateContextUsage } from './contextUsage.js';
@@ -139,6 +148,31 @@ export function processTranscriptLine(
     // Claude Code may change the JSONL structure across versions
     const assistantContent = record.message?.content ?? record.content;
 
+    // -- Project label + detail panel: where the session runs, what it last said --
+    // Claude Code stamps cwd and gitBranch on every record. The reported branch
+    // only decides when the directory is not on this machine (remote session);
+    // locally the runtime re-reads .git/HEAD itself. Sidechain records belong to
+    // sub-agents and never speak for this agent.
+    let detailsChanged = false;
+    if (typeof record.cwd === 'string') {
+      detailsChanged = noteCwd(agent, record.cwd) || detailsChanged;
+    }
+    if (typeof record.gitBranch === 'string') {
+      detailsChanged = refreshGitBranch(agent, record.gitBranch) || detailsChanged;
+    }
+    agent.lastActivityAt = agent.lastDataAt;
+    if (record.isSidechain !== true) {
+      if (record.type === 'assistant') {
+        const model = record.message?.model;
+        if (typeof model === 'string') detailsChanged = noteModel(agent, model) || detailsChanged;
+        const text = extractTextBlocks(assistantContent);
+        if (text) detailsChanged = noteAssistantText(agent, text) || detailsChanged;
+      } else if (record.type === 'user' && record.isMeta !== true) {
+        const prompt = extractUserPrompt(record.message?.content ?? record.content);
+        if (prompt) detailsChanged = noteUserPrompt(agent, prompt) || detailsChanged;
+      }
+    }
+
     if (record.type === 'assistant' && Array.isArray(assistantContent)) {
       const blocks = assistantContent as Array<{
         type: string;
@@ -164,6 +198,8 @@ export function processTranscriptLine(
             agent.activeToolIds.add(block.id);
             agent.activeToolStatuses.set(block.id, status);
             agent.activeToolNames.set(block.id, toolName);
+            noteToolUse(agent, toolName, block.input ?? {}, hookProvider);
+            detailsChanged = true;
             if (!exemptTools().has(toolName)) {
               hasNonExemptTool = true;
             }
@@ -530,9 +566,35 @@ export function processTranscriptLine(
         }
       }
     }
+
+    if (detailsChanged) {
+      agents.broadcast(buildAgentDetails(agentId, agent));
+    }
   } catch {
     // Ignore malformed lines
   }
+}
+
+/** Text of a message: a plain string, or the joined `text` blocks of a content array. */
+function extractTextBlocks(content: unknown): string {
+  if (typeof content === 'string') return content;
+  if (!Array.isArray(content)) return '';
+  return (content as Array<{ type?: string; text?: unknown }>)
+    .filter((b) => b?.type === 'text' && typeof b.text === 'string')
+    .map((b) => b.text as string)
+    .join('\n');
+}
+
+/** A user prompt is text the human typed. Tool results ride user records too
+ *  and are not prompts, so a record carrying one yields nothing. */
+function extractUserPrompt(content: unknown): string {
+  if (
+    Array.isArray(content) &&
+    (content as Array<{ type?: string }>).some((b) => b?.type === 'tool_result')
+  ) {
+    return '';
+  }
+  return extractTextBlocks(content);
 }
 
 function processProgressRecord(

@@ -96,6 +96,10 @@ export interface HookProvider {
 
   /** Format tool status for display (e.g., "Read" -> "Reading foo.ts") */
   formatToolStatus(toolName: string, input?: unknown): string;
+  /** One-line gist of a tool call's input for the detail panel (the command, the
+   *  file path, the search pattern...). Undefined when the input has nothing
+   *  worth showing. Optional: the panel then shows the tool name alone. */
+  summarizeToolInput?(toolName: string, input?: unknown): string | undefined;
   /** Tools that don't trigger permission timers */
   readonly permissionExemptTools: ReadonlySet<string>;
   /** Tools that spawn sub-agent characters */

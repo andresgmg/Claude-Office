@@ -13,8 +13,9 @@ import * as fs from 'fs';
 import * as path from 'path';
 
 import type { HookProvider } from '../../core/src/provider.js';
+import { broadcastAgentDetails, refreshGitBranch } from './agentDetails.js';
 import type { AgentStateStore } from './agentStateStore.js';
-import { DEFAULT_MAX_CONTEXT_TOKENS } from './constants.js';
+import { DEFAULT_MAX_CONTEXT_TOKENS, GIT_BRANCH_REFRESH_INTERVAL_MS } from './constants.js';
 import { DismissalTracker } from './dismissalTracker.js';
 import {
   adoptExternalSessionFromHook,
@@ -73,6 +74,7 @@ export class AgentRuntime {
   readonly activeAgentId = { current: null as number | null };
   private externalScanTimer: ReturnType<typeof setInterval> | null = null;
   private staleCheckTimer: ReturnType<typeof setInterval> | null = null;
+  private branchRefreshTimer: ReturnType<typeof setInterval> | null = null;
 
   // Configuration refs (mutable, shared with scanners)
   readonly watchAllSessions = { current: false };
@@ -449,6 +451,23 @@ export class AgentRuntime {
     );
   }
 
+  /**
+   * Re-read every agent's git branch on a fixed cadence (agentDetails.ts). A
+   * checkout switched from the terminal while the agent idles has no event of
+   * its own; two small file reads per agent every 30 s keep the label honest.
+   */
+  startBranchRefresh(): void {
+    if (this.branchRefreshTimer) return;
+
+    this.branchRefreshTimer = setInterval(() => {
+      for (const [id, agent] of this.store) {
+        if (refreshGitBranch(agent)) {
+          broadcastAgentDetails(this.store, id);
+        }
+      }
+    }, GIT_BRANCH_REFRESH_INTERVAL_MS);
+  }
+
   // ── Restore persisted external agents (standalone) ──
 
   /**
@@ -570,6 +589,10 @@ export class AgentRuntime {
     if (this.staleCheckTimer) {
       clearInterval(this.staleCheckTimer);
       this.staleCheckTimer = null;
+    }
+    if (this.branchRefreshTimer) {
+      clearInterval(this.branchRefreshTimer);
+      this.branchRefreshTimer = null;
     }
 
     for (const id of [...this.store.keys()]) {

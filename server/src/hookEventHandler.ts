@@ -1,6 +1,7 @@
 import * as path from 'path';
 
 import type { AgentEvent, HookProvider } from '../../core/src/provider.js';
+import { broadcastAgentDetails, noteCwd, noteToolUse } from './agentDetails.js';
 import type { AgentStateStore } from './agentStateStore.js';
 import { SESSION_END_GRACE_MS } from './constants.js';
 import type { SessionRouter } from './sessionRouter.js';
@@ -316,6 +317,12 @@ export class HookEventHandler {
     if (!agent) return;
 
     agent.hookDelivered = true;
+    agent.lastActivityAt = Date.now();
+    // Every Claude hook payload carries the session's cwd. The first one (or a
+    // change) fixes the project label's branch and the detail panel's path.
+    if (typeof event.cwd === 'string' && noteCwd(agent, event.cwd)) {
+      broadcastAgentDetails(this.agents, agentId);
+    }
     if (debug)
       console.log(
         `[Claude Office] Hook: Agent ${agentId} - ${eventName} (session=${event.session_id.slice(0, 8)}...)`,
@@ -436,6 +443,10 @@ export class HookEventHandler {
     agent.isWaiting = false;
     agent.permissionSent = false;
     agent.hadToolsInTurn = true;
+
+    // Detail panel: the newest tool call and the gist of its input.
+    noteToolUse(agent, toolName, toolInput, this.provider);
+    broadcastAgentDetails(this.agents, agentId);
 
     // Send tool start + active state to webview (instant, no 500ms JSONL delay).
     // Skip for Task/Agent tools — their sub-agent characters need the stable JSONL

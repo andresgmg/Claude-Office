@@ -10,12 +10,16 @@ import {
   closeAgentFromOverlay,
   expectOverlayCount,
   expectOverlayVisible,
+  expectSingleAgentOverlay,
 } from '../../helpers/office';
 import { openSettingsModal, setSettings } from '../../helpers/webview';
 
 // The DebugView diagnostics block polls every 2s (see DebugView.tsx); allow a
 // few polling rounds plus IPC/render slop.
 const DIAGNOSTICS_POLL_TIMEOUT_MS = 15_000;
+// The detail panel renders from React state fed by the agentDetails broadcast;
+// allow the WebSocket round trip plus the selection frame.
+const DETAIL_PANEL_TIMEOUT_MS = 15_000;
 // onReloadAssets does its filesystem work after the externalAssetDirectoriesUpdated
 // reply, so the re-broadcast lands slightly later than the dir-list update.
 const ASSET_RELOAD_TIMEOUT_MS = 15_000;
@@ -56,6 +60,61 @@ test.describe('Standalone / UI', () => {
     await expectOverlayCount(page, 0);
     const messages = await standalone.drainMessages();
     expect(messages.some((message) => message.type === 'agentClosed')).toBe(true);
+  });
+
+  test('selecting a character opens the detail panel with its branch and last tool @area:standalone', async ({
+    page,
+    standalone,
+  }) => {
+    await setSettings(page, {
+      alwaysShowLabels: true,
+      hooksEnabled: true,
+      watchAllSessions: true,
+      debugView: false,
+    });
+    await standalone.drainMessages();
+
+    // The workspace is a checkout on branch feature/detail-panel. The server
+    // reads .git/HEAD directly (no git subprocess), so a bare HEAD file stands
+    // in for `git init` + `git checkout -b`.
+    fs.mkdirSync(path.join(standalone.workspaceDir, '.git'), { recursive: true });
+    fs.writeFileSync(
+      path.join(standalone.workspaceDir, '.git', 'HEAD'),
+      'ref: refs/heads/feature/detail-panel\n',
+    );
+
+    const sessionId = 'standalone-detail-panel-session';
+    await sendHookEvent(
+      standalone.hookServerConfig,
+      sessionStartStartup(sessionId, standalone.workspaceDir),
+    );
+    await sendHookEvent(standalone.hookServerConfig, {
+      session_id: sessionId,
+      hook_event_name: 'PreToolUse',
+      cwd: standalone.workspaceDir,
+      tool_name: 'Bash',
+      tool_input: { command: 'npm test' },
+    });
+
+    const agentId = await expectSingleAgentOverlay(page);
+    // The overlay's project line carries the branch next to the folder name.
+    await expectOverlayVisible(page, 'feature/detail-panel');
+
+    // Select the character the way a canvas click does.
+    await page.evaluate(
+      (id) => (window as TestHooksWindow).__claudeOfficeTestHooks?.selectAgent?.(id),
+      agentId,
+    );
+    const panel = page.getByTestId('agent-detail-panel');
+    await expect(panel).toBeVisible({ timeout: DETAIL_PANEL_TIMEOUT_MS });
+    await expect(panel).toContainText('feature/detail-panel');
+    await expect(panel).toContainText(path.basename(standalone.workspaceDir));
+    await expect(panel).toContainText('Bash');
+    await expect(panel).toContainText('npm test');
+
+    // Closing the panel clears the selection, so it is gone, not hidden.
+    await panel.getByTitle('Close panel').click();
+    await expect(panel).toHaveCount(0);
   });
 
   test('Debug View renders JSONL diagnostics in standalone @area:standalone', async ({

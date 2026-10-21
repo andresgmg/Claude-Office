@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { toMajorMinor } from './changelogData.js';
+import { AgentDetailPanel } from './components/AgentDetailPanel.js';
 import { BottomToolbar } from './components/BottomToolbar.js';
 import { ChangelogModal } from './components/ChangelogModal.js';
 import { ConnectionIndicator } from './components/ConnectionIndicator.js';
@@ -16,6 +17,7 @@ import { useEditorActions } from './hooks/useEditorActions.js';
 import { useEditorKeyboard } from './hooks/useEditorKeyboard.js';
 import { useExtensionMessages } from './hooks/useExtensionMessages.js';
 import { useIntroTour } from './hooks/useIntroTour.js';
+import { useSelectedAgentId } from './hooks/useSelectedAgentId.js';
 import { OfficeCanvas } from './office/components/OfficeCanvas.js';
 import { ToolOverlay } from './office/components/ToolOverlay.js';
 import { EditorState } from './office/editor/editorState.js';
@@ -71,6 +73,7 @@ function App() {
     agentStatuses,
     subagentTools,
     subagentCharacters,
+    agentDetails,
     layoutReady,
     loadedAssets,
     agentFolderNames,
@@ -218,6 +221,22 @@ function App() {
   }, []);
 
   const officeState = getOfficeState();
+
+  // The detail panel follows the canvas selection. A selected sub-agent shows
+  // its parent: the sub has no session of its own, the parent has everything.
+  const selectedAgentId = useSelectedAgentId(officeState);
+  const selectedCharacter =
+    selectedAgentId !== null ? officeState.characters.get(selectedAgentId) : undefined;
+  const detailAgentId = selectedCharacter
+    ? selectedCharacter.isSubagent && selectedCharacter.parentAgentId !== null
+      ? selectedCharacter.parentAgentId
+      : selectedCharacter.id
+    : null;
+  const handleCloseDetailPanel = useCallback(() => {
+    const os = getOfficeState();
+    os.selectedAgentId = null;
+    os.cameraFollowId = null;
+  }, []);
 
   // Folders the Areas dropdown can map: every distinct folder an agent has run
   // in this session (name is the areaMappings key / seat-bias identity, path is
@@ -401,12 +420,24 @@ function App() {
             agentTools={agentTools}
             subagentTools={subagentTools}
             subagentCharacters={subagentCharacters}
+            agentDetails={agentDetails}
             containerRef={containerRef}
             zoom={editor.zoom}
             panRef={editor.panRef}
             onCloseAgent={handleCloseAgent}
             alwaysShowOverlay={alwaysShowOverlay}
           />
+
+          {detailAgentId !== null && !editor.isEditMode && (
+            <AgentDetailPanel
+              agentId={detailAgentId}
+              officeState={officeState}
+              details={agentDetails[detailAgentId]}
+              tools={agentTools[detailAgentId] ?? []}
+              onClose={handleCloseDetailPanel}
+              onCloseAgent={handleCloseAgent}
+            />
+          )}
         </>
       ) : (
         <DebugView

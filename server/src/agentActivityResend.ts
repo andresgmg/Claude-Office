@@ -1,3 +1,4 @@
+import { buildAgentDetails } from './agentDetails.js';
 import type { AgentStateStore } from './agentStateStore.js';
 import { hasPromotedBackgroundAgent } from './teamUtils.js';
 
@@ -10,6 +11,7 @@ import { hasPromotedBackgroundAgent } from './teamUtils.js';
  * 3. Background tools with runInBackground + isTeammateSpawn flags, skipping promoted spawns
  * 4. Waiting status
  * 5. Context usage
+ * 6. Detail panel data (working directory, branch, newest tool and messages)
  */
 export function resendAgentActivity(
   send: (message: Record<string, unknown>) => void,
@@ -84,5 +86,9 @@ export function resendAgentActivity(
         maxContextTokens: agent.maxContextTokens,
       });
     }
+
+    // 6. Detail panel data. Always sent: even a fresh agent has a session id and
+    // usually a working directory, and the panel renders whatever is present.
+    send(buildAgentDetails(id, agent));
   }
 }

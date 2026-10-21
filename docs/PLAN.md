@@ -190,11 +190,14 @@ el salto de red WSL→Windows). Lo mismo al revés.
    `~/.claude/settings.json` en [docs/remote-hooks.md](remote-hooks.md).
 4. ⏳ **Agent SDK.** Un adaptador mínimo (TypeScript y Python) que registra los hooks del SDK
    y hace POST al servidor con el mismo payload; ejemplo en `examples/`.
-5. ⏳ **Funciones v1.** Actividad en vivo, subagentes/equipos y uso de contexto ya existen.
-   Añadir: etiqueta de proyecto (derivada de `cwd`) y rama git (el servidor ejecuta
-   `git rev-parse --abbrev-ref HEAD` en `cwd` para agentes locales). Panel de detalle al
-   hacer clic: última herramienta e input (desde hooks) y último mensaje (desde el
-   transcript, solo local).
+5. ✅ **Funciones v1.** Actividad en vivo, subagentes/equipos y uso de contexto ya existían.
+   Añadido: la etiqueta sobre el personaje muestra `carpeta · rama`; el servidor lee
+   `.git/HEAD` del directorio de trabajo de la sesión (sin subprocesos, compatible con
+   worktrees) y lo refresca cada 30 segundos; para sesiones remotas usa la rama que
+   reporta el transcript. Panel de detalle lateral al hacer clic en un personaje:
+   proyecto, rama, ruta, modelo, contexto, última herramienta con su entrada, último
+   mensaje y último prompt (del transcript, solo local), sesión y transcript. Nuevo
+   mensaje `agentDetails` del protocolo.
 6. ✅ **Pruebas.** Tests Vitest de `server/` (28 archivos) y `webview-ui/` (10) adaptados;
    e2e de Playwright reducido a los 10 tests del servidor web; e2e de VS Code eliminado.
 7. ✅ **Limpieza final.** Eliminada de extremo a extremo la función "headless as ghosts"

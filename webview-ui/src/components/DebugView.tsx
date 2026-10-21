@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import type { OfficeState } from '../office/engine/officeState.js';
 import type { ToolActivity } from '../office/types.js';
 import { transport } from '../transport/index.js';
+import { formatTimeAgo } from './formatTimeAgo.js';
 import { Button } from './ui/Button.js';
 
 interface AgentDiagnostics {
@@ -49,15 +50,6 @@ function ToolLine({ tool }: { tool: ToolActivity }) {
       {tool.permissionWait && !tool.done ? 'Needs approval' : tool.status}
     </span>
   );
-}
-
-function formatTimeAgo(ms: number): string {
-  if (ms === 0) return 'never';
-  const seconds = Math.round((Date.now() - ms) / 1000);
-  if (seconds < 2) return 'just now';
-  if (seconds < 60) return `${seconds}s ago`;
-  if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`;
-  return `${Math.floor(seconds / 3600)}h ago`;
 }
 
 export function DebugView({

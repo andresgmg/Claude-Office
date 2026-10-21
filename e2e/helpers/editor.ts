@@ -40,6 +40,8 @@ export interface TestHooksWindow extends Window {
     }>;
     editorTileAction?: (col: number, row: number) => void;
     editorEraseAction?: (col: number, row: number) => void;
+    /** Select a character by agent id, the same state a canvas click sets. */
+    selectAgent?: (id: number) => void;
     messageLog?: Array<{ type: string }>;
   };
 }

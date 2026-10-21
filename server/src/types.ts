@@ -81,6 +81,28 @@ export interface AgentState {
   palette?: number;
   /** Hue shift in degrees (0-360). Rotates the base palette colors. */
   hueShift?: number;
+
+  // -- Project label + detail panel (server/src/agentDetails.ts) --
+  /** Working directory of the session as the CLI reported it (hook `cwd`,
+   *  transcript `cwd`). Unknown for a transcript adopted before any record
+   *  carried it. Never persisted: the next event re-reports it. */
+  cwd?: string;
+  /** True when `cwd` exists on this machine, so its branch can be read from
+   *  disk; false for a remote (hooks-only) session. */
+  cwdIsLocal?: boolean;
+  /** Branch checked out at `cwd` (short SHA when detached). Re-read every
+   *  GIT_BRANCH_REFRESH_INTERVAL_MS when local, else what the transcript said. */
+  gitBranch?: string;
+  /** Model id of the newest assistant record. */
+  model?: string;
+  /** Newest tool call, with the provider's gist of its input. */
+  lastTool?: { name: string; summary?: string; at: number };
+  /** Newest main-chain assistant text, truncated. */
+  lastAssistantText?: string;
+  /** Newest user prompt (tool results excluded), truncated. */
+  lastUserPrompt?: string;
+  /** ms since epoch of the newest hook event or transcript line. */
+  lastActivityAt?: number;
 }
 
 export interface PersistedAgent {

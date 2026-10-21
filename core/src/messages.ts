@@ -24,6 +24,7 @@ export type ServerMessage =
   | SubagentToolPermission
   | AgentTeamInfo
   | AgentContextUsage
+  | AgentDetails
   | LayoutLoaded
   | FurnitureAssetsLoaded
   | CharacterSpritesLoaded
@@ -173,6 +174,26 @@ export interface AgentContextUsage {
   id: number;
   contextTokens: number;
   maxContextTokens: number;
+}
+
+export interface AgentDetails {
+  type: 'agentDetails';
+  id: number;
+  sessionId?: string;
+  cwd?: string;
+  gitBranch?: string;
+  transcriptPath?: string;
+  model?: string;
+  lastTool?: AgentLastTool;
+  lastAssistantText?: string;
+  lastUserPrompt?: string;
+  lastActivityAt?: number;
+}
+
+export interface AgentLastTool {
+  name: string;
+  summary?: string;
+  at: number;
 }
 
 export interface LayoutLoaded {

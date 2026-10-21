@@ -68,12 +68,20 @@ _Avoid_: stale (implies inactivity or age, which never removes an agent), dead, 
 ## Interaction
 
 **Select**:
-Mark a character as the current subject in the office (the white outline). Selection is what seat reassignment operates on.
+Mark a character as the current subject in the office (the white outline). Selection is what seat reassignment operates on, and what opens the Detail panel.
 _Avoid_: focus (reserved for terminals), highlight
 
 **Follow**:
 The camera tracking the selected character. Ends on manual pan or deselection.
 _Avoid_: track
+
+**Detail panel**:
+The side panel that opens for the selected character: project folder and git branch, working directory, model, context gauge, the newest tool call and its input, and the last message and prompt from the transcript. It follows the selection and closes with it. A selected sub-agent shows its parent's panel, since the sub has no session of its own.
+_Avoid_: inspector, sidebar, properties
+
+**Project label**:
+The small line under a character's activity label: the folder the session runs in, then its git branch (`folder · branch`).
+_Avoid_: workspace label, repo label
 
 **Focus**:
 Bring an agent's terminal to the front. Not available in Claude Office (there are no terminals); the word stays reserved so it is never used for the in-office highlight.

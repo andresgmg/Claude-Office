@@ -28,6 +28,20 @@ export interface SubagentCharacter {
   label: string;
 }
 
+/** Detail-panel data for one agent: the `agentDetails` server message. */
+export interface AgentDetails {
+  id: number;
+  sessionId?: string;
+  cwd?: string;
+  gitBranch?: string;
+  transcriptPath?: string;
+  model?: string;
+  lastTool?: { name: string; summary?: string; at: number };
+  lastAssistantText?: string;
+  lastUserPrompt?: string;
+  lastActivityAt?: number;
+}
+
 interface FurnitureAsset {
   id: string;
   name: string;
@@ -58,6 +72,8 @@ interface ExtensionMessageState {
   agentStatuses: Record<number, string>;
   subagentTools: Record<number, Record<string, ToolActivity[]>>;
   subagentCharacters: SubagentCharacter[];
+  /** Per-agent detail-panel data (cwd, branch, newest tool, last messages). */
+  agentDetails: Record<number, AgentDetails>;
   layoutReady: boolean;
   loadedAssets?: { catalog: FurnitureAsset[]; sprites: Record<string, string[][]> };
   /** Distinct folderNames seen across agents this session — source for the Areas folder dropdown. */
@@ -108,6 +124,7 @@ export function useExtensionMessages(
     Record<number, Record<string, ToolActivity[]>>
   >({});
   const [subagentCharacters, setSubagentCharacters] = useState<SubagentCharacter[]>([]);
+  const [agentDetails, setAgentDetails] = useState<Record<number, AgentDetails>>({});
   const [layoutReady, setLayoutReady] = useState(false);
   const [loadedAssets, setLoadedAssets] = useState<
     { catalog: FurnitureAsset[]; sprites: Record<string, string[][]> } | undefined
@@ -268,6 +285,12 @@ export function useExtensionMessages(
           return next;
         });
         setSubagentTools((prev) => {
+          if (!(id in prev)) return prev;
+          const next = { ...prev };
+          delete next[id];
+          return next;
+        });
+        setAgentDetails((prev) => {
           if (!(id in prev)) return prev;
           const next = { ...prev };
           delete next[id];
@@ -683,6 +706,9 @@ export function useExtensionMessages(
       } else if (msg.type === 'agentContextUsage') {
         const id = msg.id as number;
         os.setAgentContext(id, msg.contextTokens as number, msg.maxContextTokens as number);
+      } else if (msg.type === 'agentDetails') {
+        const details = msg as AgentDetails;
+        setAgentDetails((prev) => ({ ...prev, [details.id]: details }));
       }
     };
     const unsubscribe = transport.onMessage(handler);
@@ -713,6 +739,7 @@ export function useExtensionMessages(
     agentStatuses,
     subagentTools,
     subagentCharacters,
+    agentDetails,
     layoutReady,
     loadedAssets,
     agentFolderNames,

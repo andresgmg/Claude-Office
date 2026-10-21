@@ -99,6 +99,8 @@ components:
         - $ref: '#/components/schemas/AgentTeamInfo'
         # Context window
         - $ref: '#/components/schemas/AgentContextUsage'
+        # Detail panel
+        - $ref: '#/components/schemas/AgentDetails'
         # Layout
         - $ref: '#/components/schemas/LayoutLoaded'
         # Assets
@@ -422,6 +424,49 @@ components:
           type: integer
         maxContextTokens:
           type: integer
+
+    AgentDetails:
+      description: |
+        Everything the detail panel shows for one agent: where it runs (working
+        directory, git branch), what it is doing (newest tool call) and what it
+        last said or was asked. Sent on connect for every agent and again whenever
+        any field changes. Every field but `type` and `id` is optional: a hook-only
+        session on another machine has no readable transcript or working directory.
+      type: object
+      additionalProperties: false
+      required: [type, id]
+      properties:
+        type:
+          const: agentDetails
+        id:
+          type: integer
+        sessionId:
+          type: string
+        cwd:
+          type: string
+          description: Working directory of the session, as the CLI reported it.
+        gitBranch:
+          type: string
+          description: >-
+            Branch checked out at `cwd` (the short commit SHA when HEAD is
+            detached). Re-read on a fixed cadence while the directory is on the
+            server's machine; otherwise the value the transcript reported.
+        transcriptPath:
+          type: string
+        model:
+          type: string
+          description: Model id of the newest assistant record.
+        lastTool:
+          $ref: '#/components/schemas/AgentLastTool'
+        lastAssistantText:
+          type: string
+          description: Newest main-chain assistant text, truncated.
+        lastUserPrompt:
+          type: string
+          description: Newest user prompt (tool results excluded), truncated.
+        lastActivityAt:
+          type: integer
+          description: ms since epoch of the newest hook event or transcript line.
 
     LayoutLoaded:
       description: |
@@ -976,6 +1021,23 @@ components:
           type: integer
         seatId:
           type: string
+
+    AgentLastTool:
+      description: The newest tool call an agent started.
+      type: object
+      additionalProperties: false
+      required: [name, at]
+      properties:
+        name:
+          type: string
+        summary:
+          type: string
+          description: >-
+            Provider-formatted gist of the input (command, file path, pattern...),
+            truncated.
+        at:
+          type: integer
+          description: ms since epoch when the call started.
 
     SeatAssignment:
       description: |
