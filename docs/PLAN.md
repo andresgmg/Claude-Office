@@ -188,8 +188,12 @@ el salto de red WSL→Windows). Lo mismo al revés.
    `type: "http"` con `Authorization: Bearer <token>`. Token fijo con `--token` o
    `CLAUDE_OFFICE_TOKEN` (mínimo 16 caracteres, sin espacios); snippet completo de
    `~/.claude/settings.json` en [docs/remote-hooks.md](remote-hooks.md).
-4. ⏳ **Agent SDK.** Un adaptador mínimo (TypeScript y Python) que registra los hooks del SDK
-   y hace POST al servidor con el mismo payload; ejemplo en `examples/`.
+4. ✅ **Agent SDK.** En la misma máquina no hace falta nada: el SDK carga
+   `~/.claude/settings.json` por defecto y los hooks instalados ya cubren sus sesiones. Para
+   otra máquina o la nube, reenviadores en TypeScript y Python en `examples/agent-sdk/` que
+   registran los hooks del SDK y hacen POST a `/api/hooks/claude` con el token fijo (Python
+   sintetiza `SessionStart`/`SessionEnd`, que su SDK no expone). Guía en
+   [examples/agent-sdk/README.md](../examples/agent-sdk/README.md).
 5. ✅ **Funciones v1.** Actividad en vivo, subagentes/equipos y uso de contexto ya existían.
    Añadido: la etiqueta sobre el personaje muestra `carpeta · rama`; el servidor lee
    `.git/HEAD` del directorio de trabajo de la sesión (sin subprocesos, compatible con

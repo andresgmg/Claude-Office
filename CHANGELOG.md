@@ -24,6 +24,7 @@ Web-only fork of pixel-agents v1.4.1, renamed to Claude Office and trimmed to wh
 
 - **Project and branch labels.** The overlay's project line reads `folder · branch`. The server reads `.git/HEAD` of the session's working directory (walks up, worktree-aware, no subprocess) and re-reads it every 30 s; a session on another machine shows the branch its transcript reports.
 - **Detail panel.** Clicking a character opens a side panel with project, branch, path, model, context gauge, the newest tool call and its input, the last assistant message and user prompt (from the transcript, main chain only), session id and transcript path. A selected sub-agent shows its parent. New `agentDetails` server message, sent on connect and whenever something changes.
+- **Agent SDK forwarders** (`examples/agent-sdk/`, TypeScript and Python): register the SDK's hook callbacks and post each event to `/api/hooks/claude` with the fixed token, for programs running on another machine. On the office's own machine nothing is needed: the SDK loads `~/.claude/settings.json`, so the installed hooks already fire. The Python forwarder synthesizes `SessionStart` / `SessionEnd`, which that SDK does not expose. Guide in Spanish.
 - `docs/PLAN.md`: research, decisions taken with the owner and the phase 1 / phase 2 roadmap (Spanish).
 - `docs/remote-hooks.md`: configuring Claude Code `http` hooks against the fixed token, with the full `settings.json` snippet for the 12 installed events (Spanish).
 - Spanish `README.md` for local use on Windows and WSL.

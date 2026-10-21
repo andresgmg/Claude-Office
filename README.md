@@ -90,7 +90,8 @@ activa **Settings → Watch All Sessions**. Es lo recomendable para una oficina 
 
 ## Conectar Claude Code
 
-Hay tres caminos. En local usa el primero; el segundo es la base de la fase 2.
+Hay cuatro caminos. En local usa el primero; el segundo es la base de la fase 2; el cuarto es
+para tus propios agentes.
 
 ### 1. Hooks instalados desde la interfaz (recomendado en local)
 
@@ -119,6 +120,14 @@ veces.
 
 Si los hooks están desactivados, el servidor infiere el estado leyendo los transcripts de
 `~/.claude/projects/`. Funciona, pero es más lento y menos preciso que los hooks.
+
+### 4. Agentes propios con el Agent SDK
+
+Si tu programa con el Agent SDK corre en la misma máquina que la oficina, no hay que hacer
+nada: el SDK carga `~/.claude/settings.json` por defecto y los hooks instalados desde la
+interfaz ya cubren sus sesiones. Si corre en otra máquina, copia el reenviador de
+[examples/agent-sdk](examples/agent-sdk/README.md) (TypeScript o Python) y arranca la oficina
+con un token fijo.
 
 ## Opciones del CLI
 

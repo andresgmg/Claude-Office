@@ -129,6 +129,9 @@ scripts/
   jsonl-viewer.html                  Standalone JSONL transcript inspector
   wall-tile-editor.html              Wall sprite editor
 
+examples/agent-sdk/                  Agent SDK forwarders (TypeScript + Python) + Spanish guide; copied into user
+                                     projects, not built, linted or type-checked here
+
 core/                                npm workspace (no separate package; root manages)
 server/                              npm workspace (`claude-office-server`, private)
 webview-ui/                          npm workspace
@@ -160,7 +163,7 @@ JSONL transcripts ─FileWatcher─→ TranscriptParser ────────
 
 `POST /api/hooks/claude` accepts the raw JSON Claude Code hands its hooks. The bundled hook script and a native `type: "http"` hook (see `docs/remote-hooks.md`) post the same payload, so remote machines, cloud sessions and Agent SDK agents need no new ingress — only a stable token.
 
-The fork is Claude-only by decision. The provider seam (`server/src/providers/hook/<id>/`) still exists because the runtime was built around it, but new providers are out of scope; the Agent SDK adapter planned for phase 1 feeds the Claude provider instead of adding one.
+The fork is Claude-only by decision. The provider seam (`server/src/providers/hook/<id>/`) still exists because the runtime was built around it, but new providers are out of scope. Agent SDK programs feed the Claude provider rather than adding one: on the office's own machine the SDK loads `~/.claude/settings.json` by default, so the installed hooks already fire for SDK sessions; from another machine the forwarders in `examples/agent-sdk/` register the SDK's hook callbacks and post the same payload with the fixed token (the Python SDK lacks `SessionStart`/`SessionEnd` callbacks, so its forwarder synthesizes them).
 
 ## AsyncAPI Protocol Contract
 
