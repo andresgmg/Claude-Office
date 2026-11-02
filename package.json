@@ -64,13 +64,13 @@
     "@types/node": "26.x",
     "@types/pngjs": "^6.0.5",
     "allure-commandline": "^2.46.1",
-    "allure-playwright": "^3.13.0",
+    "allure-playwright": "^3.14.0",
     "esbuild": "^0.28.2",
-    "eslint": "^10.13.0",
+    "eslint": "^10.14.0",
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-simple-import-sort": "^14.0.0",
     "husky": "^9.1.7",
-    "knip": "^6.42.0",
+    "knip": "^6.44.0",
     "lint-staged": "^17.6.0",
     "npm-run-all": "^4.1.5",
     "pngjs": "^7.0.0",
@@ -78,7 +78,7 @@
     "semver": "^7.8.5",
     "tsx": "^4.23.15",
     "typescript": "^7.0.2",
-    "typescript-eslint": "^8.71.2"
+    "typescript-eslint": "^8.72.1"
   },
   "lint-staged": {
     "server/**/*.ts": "eslint --fix",
@@ -90,7 +90,7 @@
   },
   "dependencies": {
     "@fastify/cors": "^11.3.1",
-    "@fastify/static": "^10.1.6",
+    "@fastify/static": "^10.1.8",
     "@fastify/websocket": "^11.3.4",
     "fastify": "^5.12.7"
   },
